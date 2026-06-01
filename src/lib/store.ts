@@ -18,12 +18,14 @@ export type JournalEntry = {
   transcript: string;
 };
 export type Repeat = "none" | "daily" | "weekly";
+export type Status = "todo" | "doing" | "done";
 export type StoredTodo = Todo & {
   id: string;
   createdAt: string;
   done: boolean;
   repeat: Repeat;
   streak: number;
+  status: Status;
 };
 export type StoredEvent = CalEvent & { id: string; createdAt: string };
 export type StoredNote = Note & { id: string; createdAt: string };
@@ -93,6 +95,7 @@ async function fetchAll(): Promise<DB> {
       done: !!r.done,
       repeat: (r.repeat ?? "none") as Repeat,
       streak: r.streak ?? 0,
+      status: (r.status ?? (r.done ? "done" : "todo")) as Status,
     })),
     events: (e.data ?? []).map((r) => ({
       id: r.id,
@@ -242,14 +245,15 @@ export async function addEvent(title: string, startISO: string, allDay = false) 
 export async function toggleTodo(id: string) {
   if (!supabase) return;
   const { data } = await supabase.from("todos").select("done").eq("id", id).single();
-  await supabase.from("todos").update({ done: !data?.done }).eq("id", id);
+  const nowDone = !data?.done;
+  await supabase.from("todos").update({ done: nowDone, status: nowDone ? "done" : "todo" }).eq("id", id);
   broadcast();
 }
 
 /** Edit any field of a todo in place. */
 export async function updateTodo(
   id: string,
-  patch: Partial<{ title: string; due: string | null; priority: Todo["priority"]; done: boolean; repeat: Repeat }>,
+  patch: Partial<{ title: string; due: string | null; priority: Todo["priority"]; done: boolean; repeat: Repeat; status: Status }>,
 ) {
   if (!supabase) return;
   const p: Record<string, unknown> = { ...patch };

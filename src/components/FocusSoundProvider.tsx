@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Play, Pause, Upload, Headphones } from "lucide-react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 
-type Mode = "gamma" | "alpha" | "theta" | "brown" | "file";
+export type SoundMode = "gamma" | "alpha" | "theta" | "brown" | "file";
 
-const MODES: { key: Mode; label: string; hint: string }[] = [
+export const SOUND_MODES: { key: SoundMode; label: string; hint: string }[] = [
   { key: "gamma", label: "Focus", hint: "40 Hz · deep work" },
   { key: "alpha", label: "Flow", hint: "10 Hz · relaxed focus" },
   { key: "theta", label: "Calm", hint: "6 Hz · wind down" },
@@ -14,8 +13,26 @@ const MODES: { key: Mode; label: string; hint: string }[] = [
 ];
 const BEAT: Record<string, number> = { gamma: 40, alpha: 10, theta: 6 };
 
-export default function FocusSounds() {
-  const [mode, setMode] = useState<Mode>("gamma");
+type Ctx = {
+  mode: SoundMode;
+  playing: boolean;
+  vol: number;
+  fileName: string;
+  setMode: (m: SoundMode) => void;
+  setVol: (v: number) => void;
+  toggle: () => void;
+  pickFile: () => void;
+};
+
+const SoundCtx = createContext<Ctx | null>(null);
+export const useFocusSound = () => {
+  const c = useContext(SoundCtx);
+  if (!c) throw new Error("useFocusSound outside provider");
+  return c;
+};
+
+export default function FocusSoundProvider({ children }: { children: React.ReactNode }) {
+  const [mode, setMode] = useState<SoundMode>("gamma");
   const [playing, setPlaying] = useState(false);
   const [vol, setVol] = useState(0.4);
   const [fileName, setFileName] = useState("");
@@ -49,11 +66,11 @@ export default function FocusSounds() {
       const a = audioRef.current!;
       a.volume = vol;
       a.loop = true;
-      a.play();
+      a.play().catch(() => {});
       return;
     }
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = ctxRef.current ?? new Ctx();
+    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = ctxRef.current ?? new Ctor();
     ctxRef.current = ctx;
     const gain = ctx.createGain();
     gain.gain.value = vol;
@@ -78,12 +95,11 @@ export default function FocusSounds() {
       nodesRef.current = [src];
     } else {
       const carrier = 200;
-      const beat = BEAT[mode];
       const merger = ctx.createChannelMerger(2);
       const oscL = ctx.createOscillator();
       const oscR = ctx.createOscillator();
       oscL.frequency.value = carrier;
-      oscR.frequency.value = carrier + beat;
+      oscR.frequency.value = carrier + BEAT[mode];
       oscL.connect(merger, 0, 0);
       oscR.connect(merger, 0, 1);
       merger.connect(gain);
@@ -95,80 +111,27 @@ export default function FocusSounds() {
   };
 
   const toggle = () => {
-    const next = !playing;
-    setPlaying(next);
-    if (next) start();
-    else teardown();
+    setPlaying((p) => !p);
   };
+  const pickFile = () => inputRef.current?.click();
 
-  // live volume
+  // (re)start when play state or mode changes — provider stays mounted across routes
+  useEffect(() => {
+    if (playing) start();
+    else teardown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, mode]);
+
   useEffect(() => {
     if (gainRef.current) gainRef.current.gain.value = vol;
     if (audioRef.current) audioRef.current.volume = vol;
   }, [vol]);
 
-  // switching mode while playing restarts the source
-  useEffect(() => {
-    if (playing) start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
-
   useEffect(() => () => teardown(), []);
 
   return (
-    <div className="card p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-serif text-2xl text-ink">Focus sounds</h3>
-        <span className="flex items-center gap-1.5 text-xs text-muted">
-          <Headphones size={13} /> use headphones for binaural
-        </span>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {MODES.map((m) => (
-          <button
-            key={m.key}
-            onClick={() => setMode(m.key)}
-            className="rounded-full border px-3.5 py-1.5 text-sm transition"
-            style={{
-              borderColor: mode === m.key ? "var(--color-accent)" : "var(--color-line)",
-              color: mode === m.key ? "var(--color-accent)" : "var(--color-muted)",
-            }}
-            title={m.hint}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-5 flex items-center gap-4">
-        <button
-          onClick={toggle}
-          className="flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-white transition hover:brightness-105"
-        >
-          {playing ? <Pause size={18} /> : <Play size={18} />} {playing ? "Pause" : "Play"}
-        </button>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={vol}
-          onChange={(e) => setVol(parseFloat(e.target.value))}
-          className="flex-1 accent-[var(--color-accent)]"
-          aria-label="Volume"
-        />
-        {mode === "file" && (
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="flex items-center gap-1.5 rounded-full border border-line px-3 py-2 text-sm text-ink-soft transition hover:text-ink"
-          >
-            <Upload size={14} /> {fileName ? "Change" : "Load file"}
-          </button>
-        )}
-      </div>
-      {mode === "file" && fileName && <p className="mt-2 text-xs text-muted">Playing: {fileName}</p>}
-
+    <SoundCtx.Provider value={{ mode, playing, vol, fileName, setMode, setVol, toggle, pickFile }}>
+      {children}
       <audio ref={audioRef} className="hidden" />
       <input
         ref={inputRef}
@@ -183,9 +146,10 @@ export default function FocusSounds() {
           setFileName(f.name);
           if (audioRef.current) audioRef.current.src = fileUrlRef.current;
           setMode("file");
-          if (playing) start();
+          if (!playing) setPlaying(true);
+          else start();
         }}
       />
-    </div>
+    </SoundCtx.Provider>
   );
 }

@@ -2,11 +2,54 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "motion/react";
-import { Mic } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Mic, Headphones } from "lucide-react";
 import { useRecord } from "@/components/RecordProvider";
+import { useFocusSound } from "@/components/FocusSoundProvider";
+import SoundControls from "@/components/SoundControls";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+
+function SoundButton() {
+  const { playing } = useFocusSound();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Focus sounds"
+        className="relative grid h-9 w-9 place-items-center rounded-full border border-line transition"
+        style={{ color: playing ? "var(--color-accent)" : "var(--color-muted)" }}
+      >
+        <Headphones size={16} />
+        {playing && (
+          <motion.span
+            className="absolute inset-0 rounded-full"
+            style={{ boxShadow: "0 0 0 2px var(--color-accent)" }}
+            animate={{ opacity: [0.3, 0.8, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+        )}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              className="card absolute right-0 z-50 mt-2 w-80 p-4"
+            >
+              <SoundControls compact />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 const NAV = [
   { href: "/", label: "Today" },
@@ -60,6 +103,7 @@ export default function TopBar() {
         </div>
 
         <div className="flex items-center justify-end gap-2">
+          <SoundButton />
           <ThemeToggle compact />
           <button
             onClick={open}
