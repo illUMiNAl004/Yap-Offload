@@ -26,6 +26,8 @@ export type StoredTodo = Todo & {
   repeat: Repeat;
   streak: number;
   status: Status;
+  completedAt: string | null;
+  history: string[];
 };
 export type StoredEvent = CalEvent & { id: string; createdAt: string };
 export type StoredNote = Note & { id: string; createdAt: string };
@@ -96,6 +98,8 @@ async function fetchAll(): Promise<DB> {
       repeat: (r.repeat ?? "none") as Repeat,
       streak: r.streak ?? 0,
       status: (r.status ?? (r.done ? "done" : "todo")) as Status,
+      completedAt: r.completed_at ?? null,
+      history: Array.isArray(r.history) ? r.history : [],
     })),
     events: (e.data ?? []).map((r) => ({
       id: r.id,
@@ -187,13 +191,16 @@ export async function addTodo(
 /** Complete one occurrence of a recurring task: bump its due + streak, keep it active. */
 export async function tickHabit(id: string) {
   if (!supabase) return;
-  const { data } = await supabase.from("todos").select("due, repeat, streak").eq("id", id).single();
+  const { data } = await supabase.from("todos").select("due, repeat, streak, history").eq("id", id).single();
   if (!data) return;
   const base = data.due && new Date(data.due) > new Date() ? new Date(data.due) : new Date();
   base.setDate(base.getDate() + (data.repeat === "weekly" ? 7 : 1));
+  const today = dayKey(new Date());
+  const history = Array.isArray(data.history) ? data.history : [];
+  if (!history.includes(today)) history.push(today);
   await supabase
     .from("todos")
-    .update({ due: base.toISOString(), streak: (data.streak ?? 0) + 1, done: false })
+    .update({ due: base.toISOString(), streak: (data.streak ?? 0) + 1, done: false, history })
     .eq("id", id);
   broadcast();
 }
@@ -246,7 +253,14 @@ export async function toggleTodo(id: string) {
   if (!supabase) return;
   const { data } = await supabase.from("todos").select("done").eq("id", id).single();
   const nowDone = !data?.done;
-  await supabase.from("todos").update({ done: nowDone, status: nowDone ? "done" : "todo" }).eq("id", id);
+  await supabase
+    .from("todos")
+    .update({
+      done: nowDone,
+      status: nowDone ? "done" : "todo",
+      completed_at: nowDone ? new Date().toISOString() : null,
+    })
+    .eq("id", id);
   broadcast();
 }
 

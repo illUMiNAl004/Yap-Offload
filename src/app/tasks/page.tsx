@@ -7,6 +7,7 @@ import { useDB, toggleTodo, remove, updateTodo, tickHabit, urgency, type StoredT
 import { fmtDay } from "@/lib/format";
 import PageShell from "@/components/PageShell";
 import { QuickAddTask } from "@/components/AddForms";
+import Heatmap from "@/components/Heatmap";
 
 function HabitRow({ t }: { t: StoredTodo }) {
   return (
@@ -193,6 +194,8 @@ export default function TasksPage() {
             </div>
           )}
         </div>
+
+        <Heatmap />
       </div>
     </PageShell>
   );

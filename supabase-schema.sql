@@ -24,9 +24,11 @@ create table if not exists public.todos (
   due         timestamptz,
   priority    text not null default 'normal',
   done        boolean not null default false,
-  repeat      text not null default 'none',   -- none | daily | weekly
-  streak      integer not null default 0,
-  status      text not null default 'todo'    -- todo | doing | done
+  repeat       text not null default 'none',   -- none | daily | weekly
+  streak       integer not null default 0,
+  status       text not null default 'todo',   -- todo | doing | done
+  completed_at timestamptz,
+  history      jsonb not null default '[]'::jsonb
 );
 
 -- EVENTS -------------------------------------------------------
