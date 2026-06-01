@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "motion/react";
-import { MapPin, Trash2, Clock } from "lucide-react";
+import { MapPin, Trash2, Clock, CalendarPlus } from "lucide-react";
 import { useDB, remove, type StoredEvent } from "@/lib/store";
 import { fmtDay, fmtTime, isPast } from "@/lib/format";
+import { addToCalendar } from "@/lib/ics";
 import PageShell from "@/components/PageShell";
 import { EventComposer } from "@/components/AddForms";
 
@@ -36,12 +37,21 @@ function EventCard({ ev, i }: { ev: StoredEvent; i: number }) {
           )}
         </div>
       </div>
-      <button
-        onClick={() => remove("events", ev.id)}
-        className="self-start opacity-0 transition group-hover:opacity-100"
-      >
-        <Trash2 size={15} className="text-muted hover:text-accent" />
-      </button>
+      <div className="flex shrink-0 items-center gap-1 self-start">
+        <button
+          onClick={() => addToCalendar(ev)}
+          title="Add to calendar"
+          className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs text-ink-soft transition hover:border-event hover:text-event"
+        >
+          <CalendarPlus size={14} /> Add to calendar
+        </button>
+        <button
+          onClick={() => remove("events", ev.id)}
+          className="opacity-0 transition group-hover:opacity-100"
+        >
+          <Trash2 size={15} className="text-muted hover:text-accent" />
+        </button>
+      </div>
     </motion.li>
   );
 }

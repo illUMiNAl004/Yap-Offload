@@ -16,9 +16,11 @@ import {
   CloudSnow,
   CloudLightning,
   CalendarClock,
+  CalendarPlus,
 } from "lucide-react";
 import { useDB, toggleTodo, dayKey, journalStreak } from "@/lib/store";
 import { fmtDay, fmtTime, isPast } from "@/lib/format";
+import { addToCalendar } from "@/lib/ics";
 import { useRecord } from "@/components/RecordProvider";
 import { useWeather } from "@/lib/useWeather";
 
@@ -145,11 +147,11 @@ export default function Today() {
             {todayEvents.length ? (
               <ul className="divide-y divide-line">
                 {todayEvents.map((e) => (
-                  <li key={e.id} className="flex items-baseline gap-5 py-4">
+                  <li key={e.id} className="group flex items-center gap-5 py-4">
                     <span className="w-24 shrink-0 font-serif text-2xl text-event">
                       {e.allDay ? "All day" : fmtTime(e.start)}
                     </span>
-                    <div>
+                    <div className="flex-1">
                       <p className="text-xl text-ink">{e.title}</p>
                       {e.location && (
                         <p className="mt-0.5 flex items-center gap-1 text-base text-muted">
@@ -157,6 +159,13 @@ export default function Today() {
                         </p>
                       )}
                     </div>
+                    <button
+                      onClick={() => addToCalendar(e)}
+                      title="Add to calendar"
+                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs text-ink-soft opacity-0 transition hover:border-event hover:text-event group-hover:opacity-100"
+                    >
+                      <CalendarPlus size={14} /> Add
+                    </button>
                   </li>
                 ))}
               </ul>
