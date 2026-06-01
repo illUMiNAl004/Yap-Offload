@@ -23,6 +23,7 @@ import { fmtDay, fmtTime, isPast } from "@/lib/format";
 import { addToCalendar } from "@/lib/ics";
 import { useRecord } from "@/components/RecordProvider";
 import { useWeather } from "@/lib/useWeather";
+import { useAuth, displayName } from "@/lib/auth";
 
 function greeting(h: number) {
   if (h < 5) return "Still up?";
@@ -45,6 +46,8 @@ function WeatherIcon({ code, size = 18 }: { code: number; size?: number }) {
 export default function Today() {
   const db = useDB();
   const { open } = useRecord();
+  const { user } = useAuth();
+  const name = displayName(user);
   const weather = useWeather();
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => setNow(new Date()), []);
@@ -73,8 +76,17 @@ export default function Today() {
       >
         <div>
           <h1 className="font-serif text-7xl tracking-tight text-ink sm:text-8xl">
-            {gHead}
-            <span className="text-accent">{gTail}</span>
+            {name ? (
+              <>
+                {gHead} <span className="text-accent">{name}</span>
+                {gTail}
+              </>
+            ) : (
+              <>
+                {gHead}
+                <span className="text-accent">{gTail}</span>
+              </>
+            )}
           </h1>
           <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-lg text-muted">
             {streak > 0 && (

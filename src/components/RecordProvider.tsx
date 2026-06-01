@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useCallback, useState } from "react";
+import { createContext, useContext, useCallback, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X } from "lucide-react";
+import { X, Upload } from "lucide-react";
 import { useRecorder } from "@/lib/useRecorder";
 import FlowField from "@/components/FlowField";
 import RecordButton from "@/components/RecordButton";
@@ -31,6 +31,7 @@ export default function RecordProvider({ children }: { children: React.ReactNode
   const [prompt, setPrompt] = useState(PROMPTS[0]);
 
   const recording = state === "recording";
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const openRecorder = useCallback(() => {
     setPrompt(PROMPTS[Math.floor(Math.random() * PROMPTS.length)]);
@@ -60,12 +61,17 @@ export default function RecordProvider({ children }: { children: React.ReactNode
     }
   }
 
-  async function process(blob: Blob) {
+  async function handleUpload(file?: File) {
+    if (!file) return;
+    await process(file, file.name);
+  }
+
+  async function process(blob: Blob, filename = "dump.webm") {
     setPhase("processing");
     try {
       setStatus("Listening back…");
       const fd = new FormData();
-      fd.append("audio", blob, "dump.webm");
+      fd.append("audio", blob, filename);
       const tRes = await fetch("/api/transcribe", { method: "POST", body: fd });
       const tJson = await tRes.json();
       if (!tRes.ok) throw new Error(tJson.error || "Transcription failed");
@@ -193,6 +199,24 @@ export default function RecordProvider({ children }: { children: React.ReactNode
                             </span>
                           ))}
                         </div>
+                      )}
+
+                      {!recording && phase !== "processing" && (
+                        <>
+                          <button
+                            onClick={() => fileRef.current?.click()}
+                            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-white/55 transition hover:text-white/85"
+                          >
+                            <Upload size={14} /> Upload a recording instead
+                          </button>
+                          <input
+                            ref={fileRef}
+                            type="file"
+                            accept="audio/*"
+                            className="hidden"
+                            onChange={(e) => handleUpload(e.target.files?.[0])}
+                          />
+                        </>
                       )}
 
                       {state === "denied" && (

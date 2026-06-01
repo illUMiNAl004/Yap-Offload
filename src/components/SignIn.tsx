@@ -44,7 +44,7 @@ export default function SignIn() {
         className="w-full max-w-md"
       >
         <p className="font-serif text-2xl tracking-tight text-ink">
-          y<span className="text-spectrum italic">offload</span>
+          yap<span className="text-spectrum italic">load</span>
         </p>
         <h1 className="mt-7 font-serif text-5xl leading-[1.05] tracking-tight text-ink sm:text-6xl">
           Talk your day out<span className="text-accent">.</span>

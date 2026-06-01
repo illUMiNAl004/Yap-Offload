@@ -10,6 +10,7 @@ type AuthState = {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<{ needsConfirm: boolean }>;
+  setName: (name: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -19,8 +20,19 @@ const Ctx = createContext<AuthState>({
   signInWithGoogle: async () => {},
   signInWithEmail: async () => {},
   signUpWithEmail: async () => ({ needsConfirm: false }),
+  setName: async () => {},
   signOut: async () => {},
 });
+
+/** The name the user wants to be called (custom, falling back to Google's). */
+export function displayName(user: { user_metadata?: Record<string, unknown> } | null): string {
+  const m = user?.user_metadata ?? {};
+  return (
+    (typeof m.name === "string" && m.name) ||
+    (typeof m.full_name === "string" && (m.full_name as string).split(" ")[0]) ||
+    ""
+  );
+}
 
 export const useAuth = () => useContext(Ctx);
 
@@ -66,6 +78,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { needsConfirm: !data.session };
   };
 
+  const setName = async (name: string) => {
+    if (!supabase) return;
+    const { data, error } = await supabase.auth.updateUser({ data: { name: name.trim() } });
+    if (error) throw error;
+    if (data.user) setUser(data.user);
+  };
+
   const signOut = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
@@ -73,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut }}
+      value={{ user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, setName, signOut }}
     >
       {children}
     </Ctx.Provider>

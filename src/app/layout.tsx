@@ -21,9 +21,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "yoffload — talk your day out",
+  title: "yapload — just a load of yap",
   description:
-    "Talk your day out loud. yoffload listens, then sorts it into your journal, tasks, calendar, and notes.",
+    "Talk your day out loud — just a load of yap. yapload listens, then sorts it into your journal, tasks, calendar, and notes.",
 };
 
 export default function RootLayout({

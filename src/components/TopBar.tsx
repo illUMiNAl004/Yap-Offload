@@ -51,7 +51,7 @@ export default function TopBar() {
     <header className="sticky top-0 z-40">
       <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 sm:grid-cols-[1fr_auto_1fr] sm:px-8">
         <Link href="/" className="font-serif text-2xl tracking-tight text-ink">
-          y<span className="text-spectrum italic">offload</span>
+          yap<span className="text-spectrum italic">load</span>
         </Link>
 
         {/* centered pill — desktop */}

@@ -6,6 +6,7 @@ import RecordProvider from "@/components/RecordProvider";
 import TopBar from "@/components/TopBar";
 import MemoryRibbon from "@/components/MemoryRibbon";
 import SignIn from "@/components/SignIn";
+import Onboarding from "@/components/Onboarding";
 
 function Gate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -13,12 +14,14 @@ function Gate({ children }: { children: React.ReactNode }) {
   if (supabaseReady && loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <span className="font-serif text-2xl italic text-muted">yoffload…</span>
+        <span className="font-serif text-2xl italic text-muted">yapload…</span>
       </div>
     );
   }
 
   if (supabaseReady && !user) return <SignIn />;
+
+  if (supabaseReady && user && !user.user_metadata?.name) return <Onboarding />;
 
   return (
     <RecordProvider>
