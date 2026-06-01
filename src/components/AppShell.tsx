@@ -1,6 +1,6 @@
 "use client";
 
-import { AuthProvider, useAuth } from "@/lib/auth";
+import { AuthProvider, useAuth, isOnboarded } from "@/lib/auth";
 import { supabaseReady } from "@/lib/supabase";
 import RecordProvider from "@/components/RecordProvider";
 import TopBar from "@/components/TopBar";
@@ -21,7 +21,7 @@ function Gate({ children }: { children: React.ReactNode }) {
 
   if (supabaseReady && !user) return <SignIn />;
 
-  if (supabaseReady && user && !user.user_metadata?.name) return <Onboarding />;
+  if (supabaseReady && user && !isOnboarded(user)) return <Onboarding />;
 
   return (
     <RecordProvider>

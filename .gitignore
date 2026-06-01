@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code conversation exports (contain secrets)
+*claudecodechat*.txt
+productivitydailyyapperoffloaderwebappclaudecodechat.txt
