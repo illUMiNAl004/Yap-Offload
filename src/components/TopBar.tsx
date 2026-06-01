@@ -4,12 +4,63 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Mic, Headphones } from "lucide-react";
+import { Mic, Headphones, Timer, Play, Pause, RotateCcw } from "lucide-react";
 import { useRecord } from "@/components/RecordProvider";
 import { useFocusSound } from "@/components/FocusSoundProvider";
+import { usePomodoro } from "@/components/PomodoroProvider";
 import SoundControls from "@/components/SoundControls";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccountMenu from "@/components/AccountMenu";
+
+function PomodoroButton() {
+  const { secs, running, toggle, reset, setPreset } = usePomodoro();
+  const [open, setOpen] = useState(false);
+  const mm = Math.floor(secs / 60).toString().padStart(2, "0");
+  const ss = (secs % 60).toString().padStart(2, "0");
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Focus timer"
+        className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1.5 text-sm transition"
+        style={{ color: running ? "var(--color-accent)" : "var(--color-muted)" }}
+      >
+        <Timer size={16} />
+        {running && <span className="tabular-nums">{mm}:{ss}</span>}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              className="card absolute right-0 z-50 mt-2 w-64 p-5 text-center"
+            >
+              <p className="font-serif text-6xl tabular-nums text-ink" style={{ color: secs === 0 ? "var(--color-accent)" : undefined }}>
+                {mm}:{ss}
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <button onClick={toggle} className="flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-white transition hover:brightness-105">
+                  {running ? <Pause size={16} /> : <Play size={16} />} {running ? "Pause" : "Start"}
+                </button>
+                <button onClick={reset} className="grid h-10 w-10 place-items-center rounded-full border border-line text-ink-soft hover:text-ink">
+                  <RotateCcw size={16} />
+                </button>
+              </div>
+              <div className="mt-4 flex justify-center gap-2 text-sm text-muted">
+                {[25, 15, 5, 90].map((m) => (
+                  <button key={m} onClick={() => setPreset(m)} className="rounded-full border border-line px-3 py-1 transition hover:text-ink">{m}m</button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function SoundButton() {
   const { playing } = useFocusSound();
@@ -103,6 +154,7 @@ export default function TopBar() {
         </div>
 
         <div className="flex items-center justify-end gap-2">
+          <PomodoroButton />
           <SoundButton />
           <ThemeToggle compact />
           <button

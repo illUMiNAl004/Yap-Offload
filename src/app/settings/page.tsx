@@ -6,7 +6,6 @@ import { Check, Plug, Unplug, Trash2, LogOut, Sun, Moon } from "lucide-react";
 import { useAuth, displayName } from "@/lib/auth";
 import { isGoogleConnected, disconnectGoogle } from "@/lib/google";
 import { clearAllData } from "@/lib/store";
-import { usePref } from "@/lib/prefs";
 
 function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -24,7 +23,6 @@ export default function SettingsPage() {
   const [savedName, setSavedName] = useState(false);
   const [dark, setDark] = useState(false);
   const [connected, setConnected] = useState<boolean | null>(null);
-  const [showMatrix, setShowMatrix] = usePref("showMatrix", false);
 
   useEffect(() => {
     setNameVal(displayName(user));
@@ -76,24 +74,6 @@ export default function SettingsPage() {
               <Moon size={17} /> Dark
             </button>
           </div>
-        </Section>
-
-        {/* Productivity views */}
-        <Section title="Productivity" desc="Optional views in Organize & focus.">
-          <label className="flex items-center justify-between">
-            <span className="text-ink">Show priority matrix (Eisenhower)</span>
-            <button
-              onClick={() => setShowMatrix(!showMatrix)}
-              className="relative h-7 w-12 rounded-full transition"
-              style={{ background: showMatrix ? "var(--color-accent)" : "var(--color-line-strong)" }}
-              aria-pressed={showMatrix}
-            >
-              <span
-                className="absolute top-1 h-5 w-5 rounded-full bg-white transition-all"
-                style={{ left: showMatrix ? 24 : 4 }}
-              />
-            </button>
-          </label>
         </Section>
 
         {/* Profile */}

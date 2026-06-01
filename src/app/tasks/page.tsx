@@ -1,13 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "motion/react";
-import { Check, Trash2, LayoutGrid, ArrowRight, Flame, Repeat } from "lucide-react";
+import { Check, Trash2, Flame, Repeat } from "lucide-react";
 import { useDB, toggleTodo, remove, updateTodo, tickHabit, urgency, type StoredTodo } from "@/lib/store";
 import { fmtDay } from "@/lib/format";
 import PageShell from "@/components/PageShell";
 import { QuickAddTask } from "@/components/AddForms";
 import Heatmap from "@/components/Heatmap";
+import WeekAgenda from "@/components/WeekAgenda";
 
 function HabitRow({ t }: { t: StoredTodo }) {
   return (
@@ -37,26 +37,6 @@ function HabitRow({ t }: { t: StoredTodo }) {
         <Trash2 size={15} className="text-muted hover:text-accent" />
       </button>
     </motion.li>
-  );
-}
-
-function OrganizeBanner() {
-  return (
-    <Link
-      href="/organize"
-      className="card card-hover flex items-center justify-between gap-4 p-4"
-    >
-      <span className="flex items-center gap-3">
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent/10 text-accent">
-          <LayoutGrid size={18} />
-        </span>
-        <span>
-          <span className="block font-medium text-ink">Organize &amp; focus</span>
-          <span className="block text-sm text-muted">Lanes, priority matrix, and a focus timer</span>
-        </span>
-      </span>
-      <ArrowRight size={18} className="text-muted" />
-    </Link>
   );
 }
 
@@ -149,12 +129,7 @@ export default function TasksPage() {
       subtitle="Everything you said you needed to do."
       count={db.todos.length}
       empty="Nothing on your plate. Add one below, or talk through your day."
-      addSlot={
-        <div className="space-y-3">
-          <OrganizeBanner />
-          <QuickAddTask />
-        </div>
-      }
+      addSlot={<QuickAddTask />}
     >
       <div className="space-y-5">
         {habits.length > 0 && (
@@ -195,6 +170,7 @@ export default function TasksPage() {
           )}
         </div>
 
+        <WeekAgenda />
         <Heatmap />
       </div>
     </PageShell>

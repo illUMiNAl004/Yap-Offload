@@ -4,6 +4,7 @@ import { AuthProvider, useAuth, isOnboarded } from "@/lib/auth";
 import { supabaseReady } from "@/lib/supabase";
 import RecordProvider from "@/components/RecordProvider";
 import FocusSoundProvider from "@/components/FocusSoundProvider";
+import PomodoroProvider from "@/components/PomodoroProvider";
 import TopBar from "@/components/TopBar";
 import MemoryRibbon from "@/components/MemoryRibbon";
 import SignIn from "@/components/SignIn";
@@ -27,11 +28,13 @@ function Gate({ children }: { children: React.ReactNode }) {
   return (
     <RecordProvider>
       <FocusSoundProvider>
-        <div className="flex min-h-screen flex-col">
-          <TopBar />
-          <div className="flex-1">{children}</div>
-          <MemoryRibbon />
-        </div>
+        <PomodoroProvider>
+          <div className="flex min-h-screen flex-col">
+            <TopBar />
+            <div className="flex-1">{children}</div>
+            <MemoryRibbon />
+          </div>
+        </PomodoroProvider>
       </FocusSoundProvider>
     </RecordProvider>
   );

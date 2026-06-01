@@ -2,7 +2,7 @@
 
 import { useDB, dayKey } from "@/lib/store";
 
-const WEEKS = 18;
+const WEEKS = 53;
 const DAY_MS = 86400000;
 
 function cellColor(n: number): string {
@@ -69,7 +69,7 @@ export default function Heatmap() {
         <div>
           <h3 className="font-serif text-2xl text-ink">Activity</h3>
           <p className="text-sm text-muted">
-            {total} done in the last {WEEKS} weeks
+            {total} done this year
             {streak > 0 && <> · 🔥 {streak}-day streak</>}
           </p>
         </div>
