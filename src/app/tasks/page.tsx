@@ -1,10 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "motion/react";
-import { Check, Trash2 } from "lucide-react";
+import { Check, Trash2, LayoutGrid, ArrowRight } from "lucide-react";
 import { useDB, toggleTodo, remove, updateTodo, urgency, type StoredTodo } from "@/lib/store";
 import PageShell from "@/components/PageShell";
 import { QuickAddTask } from "@/components/AddForms";
+
+function OrganizeBanner() {
+  return (
+    <Link
+      href="/organize"
+      className="card card-hover flex items-center justify-between gap-4 p-4"
+    >
+      <span className="flex items-center gap-3">
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent/10 text-accent">
+          <LayoutGrid size={18} />
+        </span>
+        <span>
+          <span className="block font-medium text-ink">Organize &amp; focus</span>
+          <span className="block text-sm text-muted">Lanes, priority matrix, and a focus timer</span>
+        </span>
+      </span>
+      <ArrowRight size={18} className="text-muted" />
+    </Link>
+  );
+}
 
 const prioColor: Record<StoredTodo["priority"], string> = {
   low: "var(--color-muted)",
@@ -93,7 +114,12 @@ export default function TasksPage() {
       subtitle="Everything you said you needed to do."
       count={db.todos.length}
       empty="Nothing on your plate. Add one below, or talk through your day."
-      addSlot={<QuickAddTask />}
+      addSlot={
+        <div className="space-y-3">
+          <OrganizeBanner />
+          <QuickAddTask />
+        </div>
+      }
     >
       <div className="card p-3 sm:p-4">
         <ul className="divide-y divide-line">
