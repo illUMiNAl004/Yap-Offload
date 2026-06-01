@@ -10,19 +10,27 @@ const PRIOS = [
   { key: "high" as const, label: "Urgent", color: "var(--color-accent)" },
 ];
 
-/** Quick-add a task — type + Enter, or expand for date & importance. */
+const REPEATS = [
+  { key: "none" as const, label: "Once" },
+  { key: "daily" as const, label: "Daily" },
+  { key: "weekly" as const, label: "Weekly" },
+];
+
+/** Quick-add a task — type + Enter, or expand for date, importance & repeat. */
 export function QuickAddTask() {
   const [v, setV] = useState("");
   const [due, setDue] = useState("");
   const [priority, setPriority] = useState<"low" | "normal" | "high">("normal");
+  const [repeat, setRepeat] = useState<"none" | "daily" | "weekly">("none");
   const [open, setOpen] = useState(false);
 
   const submit = () => {
     if (!v.trim()) return;
-    addTodo(v, due || null, priority);
+    addTodo(v, due || null, priority, repeat);
     setV("");
     setDue("");
     setPriority("normal");
+    setRepeat("none");
     setOpen(false);
   };
 
@@ -74,6 +82,21 @@ export function QuickAddTask() {
             onChange={(e) => setDue(e.target.value)}
             className="rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs text-ink outline-none"
           />
+          <div className="flex items-center gap-1.5">
+            {REPEATS.map((rp) => (
+              <button
+                key={rp.key}
+                onClick={() => setRepeat(rp.key)}
+                className="rounded-full border px-3 py-1 text-xs transition"
+                style={{
+                  borderColor: repeat === rp.key ? "var(--color-event)" : "var(--color-line)",
+                  color: repeat === rp.key ? "var(--color-event)" : "var(--color-muted)",
+                }}
+              >
+                {rp.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

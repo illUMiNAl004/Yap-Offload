@@ -10,6 +10,8 @@ export const TodoSchema = z.object({
   // ISO date (YYYY-MM-DD) or full ISO datetime; null when no time was mentioned
   due: z.string().nullable().default(null),
   priority: z.enum(["low", "normal", "high"]).default("normal"),
+  // recurring tasks become "habits"
+  repeat: z.enum(["none", "daily", "weekly"]).default("none"),
 });
 
 export const EventSchema = z.object({

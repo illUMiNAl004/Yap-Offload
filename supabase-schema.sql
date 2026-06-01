@@ -23,7 +23,9 @@ create table if not exists public.todos (
   title       text not null,
   due         timestamptz,
   priority    text not null default 'normal',
-  done        boolean not null default false
+  done        boolean not null default false,
+  repeat      text not null default 'none',   -- none | daily | weekly
+  streak      integer not null default 0
 );
 
 -- EVENTS -------------------------------------------------------

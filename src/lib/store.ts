@@ -17,7 +17,14 @@ export type JournalEntry = {
   highlights: string[];
   transcript: string;
 };
-export type StoredTodo = Todo & { id: string; createdAt: string; done: boolean };
+export type Repeat = "none" | "daily" | "weekly";
+export type StoredTodo = Todo & {
+  id: string;
+  createdAt: string;
+  done: boolean;
+  repeat: Repeat;
+  streak: number;
+};
 export type StoredEvent = CalEvent & { id: string; createdAt: string };
 export type StoredNote = Note & { id: string; createdAt: string };
 
@@ -75,6 +82,8 @@ async function fetchAll(): Promise<DB> {
       due: r.due ?? null,
       priority: r.priority ?? "normal",
       done: !!r.done,
+      repeat: (r.repeat ?? "none") as Repeat,
+      streak: r.streak ?? 0,
     })),
     events: (e.data ?? []).map((r) => ({
       id: r.id,
@@ -119,6 +128,7 @@ export async function saveSortResult(r: SortResult, transcript: string, nowISO: 
           due: t.due,
           priority: t.priority,
           done: false,
+          repeat: t.repeat ?? "none",
         })),
       ),
     );
@@ -152,10 +162,27 @@ export async function addTodo(
   title: string,
   due: string | null = null,
   priority: Todo["priority"] = "normal",
+  repeat: Repeat = "none",
 ) {
   if (!supabase || !title.trim()) return;
   const dueISO = due ? new Date(due).toISOString() : null;
-  await supabase.from("todos").insert({ title: title.trim(), due: dueISO, priority, done: false });
+  await supabase
+    .from("todos")
+    .insert({ title: title.trim(), due: dueISO, priority, done: false, repeat });
+  broadcast();
+}
+
+/** Complete one occurrence of a recurring task: bump its due + streak, keep it active. */
+export async function tickHabit(id: string) {
+  if (!supabase) return;
+  const { data } = await supabase.from("todos").select("due, repeat, streak").eq("id", id).single();
+  if (!data) return;
+  const base = data.due && new Date(data.due) > new Date() ? new Date(data.due) : new Date();
+  base.setDate(base.getDate() + (data.repeat === "weekly" ? 7 : 1));
+  await supabase
+    .from("todos")
+    .update({ due: base.toISOString(), streak: (data.streak ?? 0) + 1, done: false })
+    .eq("id", id);
   broadcast();
 }
 
@@ -213,7 +240,7 @@ export async function toggleTodo(id: string) {
 /** Edit any field of a todo in place. */
 export async function updateTodo(
   id: string,
-  patch: Partial<{ title: string; due: string | null; priority: Todo["priority"]; done: boolean }>,
+  patch: Partial<{ title: string; due: string | null; priority: Todo["priority"]; done: boolean; repeat: Repeat }>,
 ) {
   if (!supabase) return;
   const p: Record<string, unknown> = { ...patch };

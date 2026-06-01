@@ -25,8 +25,8 @@ export function mockSort(_text: string): SortResult {
       "Tired but genuinely content today.",
     ],
     todos: [
-      { title: "Email Sarah back about the design review", due: null, priority: "high" },
-      { title: "Call mom", due: atHour(2, 11).slice(0, 10), priority: "normal" },
+      { title: "Email Sarah back about the design review", due: null, priority: "high", repeat: "none" },
+      { title: "Call mom", due: atHour(2, 11).slice(0, 10), priority: "normal", repeat: "none" },
     ],
     events: [
       {

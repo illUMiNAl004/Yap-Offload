@@ -3,8 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Check, Play, Pause, RotateCcw, Plus, Timer, Grid2x2, Columns3 } from "lucide-react";
-import { useDB, toggleTodo, type StoredTodo } from "@/lib/store";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { ArrowLeft, Check, Play, Pause, RotateCcw, Plus, Timer, Grid2x2, Columns3, GripVertical } from "lucide-react";
+import { useDB, toggleTodo, updateTodo, type StoredTodo } from "@/lib/store";
 import { fmtDay, fmtTime } from "@/lib/format";
 
 type View = "lanes" | "matrix" | "focus";
@@ -14,33 +26,47 @@ const startOfToday = () => {
   d.setHours(0, 0, 0, 0);
   return d;
 };
+function atFutureEvening(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(17, 0, 0, 0);
+  return d.toISOString();
+}
 
 function horizon(t: StoredTodo): "overdue" | "today" | "week" | "later" | "someday" {
   if (!t.due) return "someday";
   const due = new Date(t.due).getTime();
   const start = startOfToday().getTime();
-  const endToday = start + 86400000;
-  const endWeek = start + 7 * 86400000;
   if (due < start) return "overdue";
-  if (due < endToday) return "today";
-  if (due < endWeek) return "week";
+  if (due < start + 86400000) return "today";
+  if (due < start + 7 * 86400000) return "week";
   return "later";
 }
-const isUrgent = (t: StoredTodo) =>
-  !!t.due && new Date(t.due).getTime() <= Date.now() + 2 * 86400000;
+const isUrgent = (t: StoredTodo) => !!t.due && new Date(t.due).getTime() <= Date.now() + 2 * 86400000;
 const isImportant = (t: StoredTodo) => t.priority === "high";
 
-function MiniTask({ t }: { t: StoredTodo }) {
+// ── draggable + droppable primitives ──
+function DragTask({ t }: { t: StoredTodo }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: t.id });
   return (
-    <li className="group flex items-start gap-2.5 rounded-lg px-2 py-2 transition hover:bg-surface-2">
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+        opacity: isDragging ? 0.35 : 1,
+        touchAction: "none",
+      }}
+      className="group flex items-start gap-2 rounded-lg px-2 py-2 transition hover:bg-surface-2"
+    >
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={() => toggleTodo(t.id)}
         className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 border-line-strong transition hover:border-task"
         aria-label="Complete"
       >
         <Check size={11} className="text-task opacity-0 group-hover:opacity-50" strokeWidth={3} />
       </button>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-ink">{t.title}</p>
         {t.due && (
           <p className="text-xs text-muted">
@@ -49,7 +75,28 @@ function MiniTask({ t }: { t: StoredTodo }) {
           </p>
         )}
       </div>
-    </li>
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab opacity-0 transition group-hover:opacity-100 active:cursor-grabbing"
+        aria-label="Drag"
+      >
+        <GripVertical size={15} className="text-muted" />
+      </button>
+    </div>
+  );
+}
+
+function DropZone({ id, className, children }: { id: string; className?: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={className}
+      style={{ outline: isOver ? "2px solid var(--color-accent)" : undefined, outlineOffset: 3, borderRadius: 14 }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -77,17 +124,9 @@ export default function OrganizePage() {
         </div>
         <div className="glassy flex items-center gap-1 rounded-full border border-line p-1">
           {views.map((v) => (
-            <button
-              key={v.key}
-              onClick={() => setView(v.key)}
-              className="relative flex items-center gap-2 rounded-full px-4 py-2 text-sm"
-            >
+            <button key={v.key} onClick={() => setView(v.key)} className="relative flex items-center gap-2 rounded-full px-4 py-2 text-sm">
               {view === v.key && (
-                <motion.span
-                  layoutId="org-view"
-                  className="absolute inset-0 rounded-full bg-surface shadow-[var(--shadow-card)]"
-                  transition={{ type: "spring", stiffness: 400, damping: 34 }}
-                />
+                <motion.span layoutId="org-view" className="absolute inset-0 rounded-full bg-surface shadow-[var(--shadow-card)]" transition={{ type: "spring", stiffness: 400, damping: 34 }} />
               )}
               <span className={`relative flex items-center gap-2 ${view === v.key ? "text-ink" : "text-muted"}`}>
                 {v.icon} {v.label}
@@ -103,82 +142,132 @@ export default function OrganizePage() {
         </div>
       ) : (
         <AnimatePresence mode="wait">
-          <motion.div
-            key={view}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-          >
+          <motion.div key={view} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.3 }}>
             {view === "lanes" && <Lanes tasks={active} />}
             {view === "matrix" && <Matrix tasks={active} />}
             {view === "focus" && <Focus tasks={active} />}
           </motion.div>
         </AnimatePresence>
       )}
+
+      {view !== "focus" && active.length > 0 && (
+        <p className="mt-5 text-center text-sm text-muted">Drag the ⋮ handle to move a task — it reschedules / re-prioritizes automatically.</p>
+      )}
     </main>
   );
 }
 
+function useBoardSensors() {
+  return useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
+  );
+}
+
 function Lanes({ tasks }: { tasks: StoredTodo[] }) {
-  const lanes: { key: ReturnType<typeof horizon>; label: string; color: string }[] = [
-    { key: "overdue", label: "Overdue", color: "var(--color-accent)" },
-    { key: "today", label: "Today", color: "var(--color-task)" },
-    { key: "week", label: "This week", color: "var(--color-event)" },
-    { key: "later", label: "Later", color: "var(--color-note)" },
-    { key: "someday", label: "Someday", color: "var(--color-muted)" },
+  const [dragId, setDragId] = useState<string | null>(null);
+  const sensors = useBoardSensors();
+  const lanes: { key: ReturnType<typeof horizon>; label: string; color: string; drop: boolean }[] = [
+    { key: "overdue", label: "Overdue", color: "var(--color-accent)", drop: false },
+    { key: "today", label: "Today", color: "var(--color-task)", drop: true },
+    { key: "week", label: "This week", color: "var(--color-event)", drop: true },
+    { key: "later", label: "Later", color: "var(--color-note)", drop: true },
+    { key: "someday", label: "Someday", color: "var(--color-muted)", drop: true },
   ];
+
+  const onEnd = (e: DragEndEvent) => {
+    setDragId(null);
+    const id = String(e.active.id);
+    const lane = e.over?.id as string | undefined;
+    if (!lane) return;
+    if (lane === "today") updateTodo(id, { due: atFutureEvening(0) });
+    else if (lane === "week") updateTodo(id, { due: atFutureEvening(3) });
+    else if (lane === "later") updateTodo(id, { due: atFutureEvening(10) });
+    else if (lane === "someday") updateTodo(id, { due: null });
+  };
+
+  const dragged = tasks.find((t) => t.id === dragId);
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-      {lanes.map((lane) => {
-        const items = tasks.filter((t) => horizon(t) === lane.key);
-        return (
-          <div key={lane.key} className="card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: lane.color }} />
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">{lane.label}</h3>
-              <span className="text-xs text-muted">{items.length}</span>
+    <DndContext sensors={sensors} onDragStart={(e: DragStartEvent) => setDragId(String(e.active.id))} onDragEnd={onEnd} onDragCancel={() => setDragId(null)}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {lanes.map((lane) => {
+          const items = tasks.filter((t) => horizon(t) === lane.key);
+          const inner = (
+            <div className="card h-full p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: lane.color }} />
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">{lane.label}</h3>
+                <span className="text-xs text-muted">{items.length}</span>
+              </div>
+              <ul className="space-y-1">
+                {items.map((t) => (
+                  <DragTask key={t.id} t={t} />
+                ))}
+                {items.length === 0 && <li className="px-2 py-2 text-sm text-muted">—</li>}
+              </ul>
             </div>
-            <ul className="space-y-1">
-              {items.map((t) => (
-                <MiniTask key={t.id} t={t} />
-              ))}
-              {items.length === 0 && <li className="px-2 py-2 text-sm text-muted">—</li>}
-            </ul>
-          </div>
-        );
-      })}
-    </div>
+          );
+          return lane.drop ? (
+            <DropZone key={lane.key} id={lane.key}>
+              {inner}
+            </DropZone>
+          ) : (
+            <div key={lane.key}>{inner}</div>
+          );
+        })}
+      </div>
+      <DragOverlay>{dragged ? <div className="card px-3 py-2 text-ink shadow-[var(--shadow-float)]">{dragged.title}</div> : null}</DragOverlay>
+    </DndContext>
   );
 }
 
 function Matrix({ tasks }: { tasks: StoredTodo[] }) {
+  const [dragId, setDragId] = useState<string | null>(null);
+  const sensors = useBoardSensors();
   const quads = [
     { key: "do", label: "Do first", sub: "Urgent · Important", color: "var(--color-accent)", f: (t: StoredTodo) => isImportant(t) && isUrgent(t) },
     { key: "plan", label: "Schedule", sub: "Important · Not urgent", color: "var(--color-event)", f: (t: StoredTodo) => isImportant(t) && !isUrgent(t) },
     { key: "quick", label: "Quick wins", sub: "Urgent · Not important", color: "var(--color-note)", f: (t: StoredTodo) => !isImportant(t) && isUrgent(t) },
     { key: "later", label: "Later", sub: "Neither", color: "var(--color-muted)", f: (t: StoredTodo) => !isImportant(t) && !isUrgent(t) },
   ];
+
+  const onEnd = (e: DragEndEvent) => {
+    setDragId(null);
+    const id = String(e.active.id);
+    const q = e.over?.id as string | undefined;
+    if (!q) return;
+    if (q === "do") updateTodo(id, { priority: "high", due: atFutureEvening(0) });
+    else if (q === "plan") updateTodo(id, { priority: "high", due: atFutureEvening(7) });
+    else if (q === "quick") updateTodo(id, { priority: "normal", due: atFutureEvening(0) });
+    else if (q === "later") updateTodo(id, { priority: "low", due: null });
+  };
+
+  const dragged = tasks.find((t) => t.id === dragId);
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {quads.map((q) => {
-        const items = tasks.filter(q.f);
-        return (
-          <div key={q.key} className="card p-5" style={{ borderTop: `3px solid ${q.color}` }}>
-            <div className="mb-3">
-              <h3 className="font-serif text-xl text-ink">{q.label}</h3>
-              <p className="text-xs uppercase tracking-wide text-muted">{q.sub}</p>
-            </div>
-            <ul className="space-y-1">
-              {items.map((t) => (
-                <MiniTask key={t.id} t={t} />
-              ))}
-              {items.length === 0 && <li className="px-2 py-2 text-sm text-muted">—</li>}
-            </ul>
-          </div>
-        );
-      })}
-    </div>
+    <DndContext sensors={sensors} onDragStart={(e: DragStartEvent) => setDragId(String(e.active.id))} onDragEnd={onEnd} onDragCancel={() => setDragId(null)}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {quads.map((q) => {
+          const items = tasks.filter(q.f);
+          return (
+            <DropZone key={q.key} id={q.key}>
+              <div className="card h-full p-5" style={{ borderTop: `3px solid ${q.color}` }}>
+                <div className="mb-3">
+                  <h3 className="font-serif text-xl text-ink">{q.label}</h3>
+                  <p className="text-xs uppercase tracking-wide text-muted">{q.sub}</p>
+                </div>
+                <ul className="space-y-1">
+                  {items.map((t) => (
+                    <DragTask key={t.id} t={t} />
+                  ))}
+                  {items.length === 0 && <li className="px-2 py-2 text-sm text-muted">—</li>}
+                </ul>
+              </div>
+            </DropZone>
+          );
+        })}
+      </div>
+      <DragOverlay>{dragged ? <div className="card px-3 py-2 text-ink shadow-[var(--shadow-float)]">{dragged.title}</div> : null}</DragOverlay>
+    </DndContext>
   );
 }
 
@@ -214,65 +303,41 @@ function Focus({ tasks }: { tasks: StoredTodo[] }) {
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
-      {/* timer */}
       <div className="card flex flex-col items-center justify-center p-8 text-center">
         <p className="text-sm uppercase tracking-wider text-muted">Focus session</p>
         <p className="my-4 font-serif text-8xl tabular-nums text-ink" style={{ color: secs === 0 ? "var(--color-accent)" : undefined }}>
           {mm}:{ss}
         </p>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setRunning((r) => !r)}
-            className="flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-white transition hover:brightness-105"
-          >
+          <button onClick={() => setRunning((r) => !r)} className="flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-white transition hover:brightness-105">
             {running ? <Pause size={18} /> : <Play size={18} />} {running ? "Pause" : "Start"}
           </button>
-          <button
-            onClick={() => {
-              setRunning(false);
-              setSecs(25 * 60);
-            }}
-            className="grid h-12 w-12 place-items-center rounded-full border border-line text-ink-soft transition hover:text-ink"
-          >
+          <button onClick={() => { setRunning(false); setSecs(25 * 60); }} className="grid h-12 w-12 place-items-center rounded-full border border-line text-ink-soft transition hover:text-ink">
             <RotateCcw size={18} />
           </button>
         </div>
         <div className="mt-5 flex gap-2 text-sm text-muted">
           {[25, 15, 5].map((m) => (
-            <button
-              key={m}
-              onClick={() => {
-                setRunning(false);
-                setSecs(m * 60);
-              }}
-              className="rounded-full border border-line px-3 py-1 transition hover:text-ink"
-            >
+            <button key={m} onClick={() => { setRunning(false); setSecs(m * 60); }} className="rounded-full border border-line px-3 py-1 transition hover:text-ink">
               {m}m
             </button>
           ))}
         </div>
       </div>
 
-      {/* top 3 */}
       <div className="card p-6">
         <h3 className="font-serif text-2xl text-ink">Your top 3 today</h3>
         <p className="mt-1 text-sm text-muted">Pick up to three. The rest can wait.</p>
-
         {pickedTasks.length > 0 && (
           <ul className="mt-4 space-y-2">
             {pickedTasks.map((t) => (
               <li key={t.id} className="flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/[0.06] px-4 py-3">
-                <button
-                  onClick={() => toggleTodo(t.id)}
-                  className="grid h-5 w-5 place-items-center rounded-full border-2 border-task"
-                  aria-label="Complete"
-                />
+                <button onClick={() => toggleTodo(t.id)} className="grid h-5 w-5 place-items-center rounded-full border-2 border-task" aria-label="Complete" />
                 <span className="text-ink">{t.title}</span>
               </li>
             ))}
           </ul>
         )}
-
         <div className="mt-5 border-t border-line pt-4">
           <p className="mb-2 text-xs uppercase tracking-wide text-muted">Choose from your tasks</p>
           <ul className="max-h-72 space-y-1 overflow-y-auto">
@@ -280,15 +345,8 @@ function Focus({ tasks }: { tasks: StoredTodo[] }) {
               const on = picked.includes(t.id);
               return (
                 <li key={t.id}>
-                  <button
-                    onClick={() => toggle(t.id)}
-                    disabled={!on && picked.length >= 3}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-surface-2 disabled:opacity-40"
-                  >
-                    <span
-                      className="grid h-5 w-5 shrink-0 place-items-center rounded-md border-2"
-                      style={{ borderColor: on ? "var(--color-accent)" : "var(--color-line-strong)", background: on ? "var(--color-accent)" : "transparent" }}
-                    >
+                  <button onClick={() => toggle(t.id)} disabled={!on && picked.length >= 3} className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-surface-2 disabled:opacity-40">
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md border-2" style={{ borderColor: on ? "var(--color-accent)" : "var(--color-line-strong)", background: on ? "var(--color-accent)" : "transparent" }}>
                       {on ? <Check size={12} className="text-white" strokeWidth={3} /> : <Plus size={12} className="text-muted" />}
                     </span>
                     <span className="text-ink">{t.title}</span>
