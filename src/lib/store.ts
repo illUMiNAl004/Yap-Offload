@@ -210,6 +210,19 @@ export async function toggleTodo(id: string) {
   broadcast();
 }
 
+/** Edit any field of a todo in place. */
+export async function updateTodo(
+  id: string,
+  patch: Partial<{ title: string; due: string | null; priority: Todo["priority"]; done: boolean }>,
+) {
+  if (!supabase) return;
+  const p: Record<string, unknown> = { ...patch };
+  if ("due" in p) p.due = p.due ? new Date(p.due as string).toISOString() : null;
+  if ("title" in p && typeof p.title === "string") p.title = p.title.trim();
+  await supabase.from("todos").update(p).eq("id", id);
+  broadcast();
+}
+
 export async function remove(kind: "todos" | "events" | "notes" | "journal", id: string) {
   if (!supabase) return;
   await supabase.from(kind).delete().eq("id", id);

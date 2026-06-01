@@ -2,8 +2,7 @@
 
 import { motion } from "motion/react";
 import { Check, Trash2 } from "lucide-react";
-import { useDB, toggleTodo, remove, urgency, type StoredTodo } from "@/lib/store";
-import { fmtDay } from "@/lib/format";
+import { useDB, toggleTodo, remove, updateTodo, urgency, type StoredTodo } from "@/lib/store";
 import PageShell from "@/components/PageShell";
 import { QuickAddTask } from "@/components/AddForms";
 
@@ -12,14 +11,23 @@ const prioColor: Record<StoredTodo["priority"], string> = {
   normal: "var(--color-task)",
   high: "var(--color-accent)",
 };
+const PRIO_CYCLE: StoredTodo["priority"][] = ["low", "normal", "high"];
+
+function toLocal(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 function Row({ t, i }: { t: StoredTodo; i: number }) {
   return (
     <motion.li
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: i * 0.04 }}
-      className="group flex items-center gap-3.5 rounded-xl px-4 py-3.5 transition hover:bg-surface-2"
+      transition={{ delay: i * 0.03 }}
+      className="group flex items-center gap-3 rounded-xl px-3 py-3 transition hover:bg-surface-2"
     >
       <button
         onClick={() => toggleTodo(t.id)}
@@ -34,20 +42,34 @@ function Row({ t, i }: { t: StoredTodo; i: number }) {
       </button>
 
       {!t.done && (
-        <span
-          className="h-2 w-2 shrink-0 rounded-full"
+        <button
+          onClick={() =>
+            updateTodo(t.id, {
+              priority: PRIO_CYCLE[(PRIO_CYCLE.indexOf(t.priority) + 1) % 3],
+            })
+          }
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
           style={{ background: prioColor[t.priority] }}
-          title={`${t.priority} priority`}
+          title={`Priority: ${t.priority} — click to change`}
         />
       )}
 
-      <span className={`flex-1 ${t.done ? "text-muted line-through" : "text-ink"}`}>{t.title}</span>
+      <input
+        key={t.title}
+        defaultValue={t.title}
+        onBlur={(e) => {
+          const v = e.target.value.trim();
+          if (v && v !== t.title) updateTodo(t.id, { title: v });
+        }}
+        className={`flex-1 bg-transparent outline-none ${t.done ? "text-muted line-through" : "text-ink"}`}
+      />
 
-      {t.due && (
-        <span className="rounded-lg border border-task/25 bg-task/10 px-2 py-1 text-xs text-task">
-          {fmtDay(t.due)}
-        </span>
-      )}
+      <input
+        type="datetime-local"
+        value={toLocal(t.due)}
+        onChange={(e) => updateTodo(t.id, { due: e.target.value || null })}
+        className="rounded-lg border border-line bg-transparent px-2 py-1 text-xs text-task outline-none"
+      />
 
       <button
         onClick={() => remove("todos", t.id)}

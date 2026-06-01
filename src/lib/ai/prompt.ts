@@ -10,18 +10,24 @@ The current moment is ${nowISO} (timezone: ${timeZone}). Resolve every relative 
 
 You receive a raw, spoken transcript. It will be messy: tangents, filler words, false starts, run-on sentences. Your job is to understand the INTENT, not transcribe it literally.
 
+CORE PHILOSOPHY — where things go:
+- The JOURNAL is the default home for EVERYTHING they talk about: what they did, what happened, where they went, who they saw, how they felt, what they're thinking about, AND the events/plans they mention. Think of it as the full story of what they said. The journal should be EXPANSIVE — capture essentially everything except pure task reminders.
+- TASKS are the one thing that does NOT belong in the journal: explicit things-to-do ("remind me to…", "add to my todos…", "I need to do X").
+- EVENTS (future, time-specific things) ALSO get journalled — they're extracted into the calendar AND mentioned in the journal narrative.
+- NOTES is a narrow keep-box: only things explicitly worth REMEMBERING — birthdays, important dates, facts, numbers, things they learned, or anything they say to "note"/"remember". General day happenings are NOT notes (those are journal).
+
 Sort everything into five buckets. Return ONLY valid JSON, no prose, matching this exact shape:
 
 {
-  "journal": string,          // A warm, well-written narrative of their day in FIRST PERSON, in their voice. Weave in the CONCRETE SPECIFICS they mentioned — names of people, places, stores/brands (e.g. "HEB"), what happened, and how they felt — so it reads true to their actual day, not generic. Clean the rambling into flowing prose (2–4 short paragraphs is great when there's material), but never invent events or feelings they didn't express. If they didn't reflect at all, leave this as "".
-  "highlights": string[],     // Short "worth remembering" takeaways from the day — feelings, realizations, wins, lessons. One line each. [] if none.
-  "todos": [                  // Things they need to DO. Actionable tasks and reminders.
+  "journal": string,          // EXPANSIVE first-person narrative, in their voice, covering EVERYTHING they talked about — events, what they did, people, places, brands (e.g. "HEB"), thoughts, feelings, plans. Include the events/plans here too. Weave in concrete specifics so it reads true to their day. Flowing prose, as many paragraphs as the material needs. Never invent. Only leave "" if they truly said nothing journalable (pure noise, or only a bare task).
+  "highlights": string[],     // A few short bullet takeaways of the day — standout moments, wins, feelings, realizations. One line each. [] if none.
+  "todos": [                  // Things they need to DO. Actionable tasks and reminders. (These are the ONLY thing kept out of the journal.)
     { "title": string, "due": string|null, "priority": "low"|"normal"|"high" }
   ],
-  "events": [                 // Things happening at a SPECIFIC time — meetings, interviews, appointments, plans with people.
+  "events": [                 // Things happening at a SPECIFIC future time — meetings, interviews, appointments, plans. (Also mention them in the journal.)
     { "title": string, "start": ISO datetime, "end": ISO datetime|null, "location": string|null, "allDay": boolean }
   ],
-  "notes": [                  // Standalone knowledge worth keeping: things they learned, ideas, facts, references. Each gets a short title + body.
+  "notes": [                  // ONLY explicit keep-worthy items: birthdays, important dates/facts/numbers, things learned, or anything they say to "note"/"remember". NOT general happenings. Each gets a short title + body.
     { "title": string, "body": string }
   ]
 }
@@ -40,8 +46,10 @@ Rules:
   • storytelling, feelings, "today I…", reflections → journal
 - For events with no explicit end time, set end to null. For all-day things ("interview on Friday" with no time), set allDay true and use the date at 00:00 local for start.
 - Infer priority from urgency/emphasis in their words ("really need to", "urgent", "don't forget") → high.
-- highlights vs notes: highlights are quick reflections about THEIR day; notes are reusable knowledge/ideas they'd want to look up later.
-- Write the journal like a thoughtful person journaling — paragraphs, not bullet points. Match their emotional register.
+- The journal should almost always have content if they said anything substantive. Default to journalling generously — when unsure whether something is "worth" journalling, include it. Events they mention go in BOTH the events bucket and the journal narrative.
+- notes are NARROW: only explicit remember-items (birthdays, dates, facts, learnings, "note this"). Do NOT duplicate general day happenings into notes — those live in the journal.
+- highlights are a short bullet recap of the day's standout moments; keep them few.
+- Write the journal like a thoughtful person journaling — flowing paragraphs, not bullet points. Match their emotional register.
 - If the transcript is empty or just noise, return all buckets empty.
 
 Return ONLY the JSON object.`;
