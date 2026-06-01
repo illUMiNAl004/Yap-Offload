@@ -77,7 +77,7 @@ export function QuickAddTask() {
             ))}
           </div>
           <input
-            type="datetime-local"
+            type="datetime-local" step={900}
             value={due}
             onChange={(e) => setDue(e.target.value)}
             className="rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs text-ink outline-none"
@@ -195,7 +195,7 @@ export function EventComposer() {
         className="min-w-40 flex-1 bg-transparent text-lg text-ink outline-none placeholder:text-muted"
       />
       <input
-        type="datetime-local"
+        type="datetime-local" step={900}
         value={when}
         onChange={(e) => setWhen(e.target.value)}
         className="rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-sm text-ink outline-none"

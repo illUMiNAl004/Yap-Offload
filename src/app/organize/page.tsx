@@ -18,6 +18,7 @@ import {
 import { ArrowLeft, Check, Play, Pause, RotateCcw, Plus, Timer, Grid2x2, Columns3, GripVertical } from "lucide-react";
 import { useDB, toggleTodo, updateTodo, type StoredTodo } from "@/lib/store";
 import { fmtDay, fmtTime } from "@/lib/format";
+import FocusSounds from "@/components/FocusSounds";
 
 type View = "lanes" | "matrix" | "focus";
 
@@ -302,6 +303,7 @@ function Focus({ tasks }: { tasks: StoredTodo[] }) {
   const pickedTasks = tasks.filter((t) => picked.includes(t.id));
 
   return (
+    <div className="space-y-5">
     <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
       <div className="card flex flex-col items-center justify-center p-8 text-center">
         <p className="text-sm uppercase tracking-wider text-muted">Focus session</p>
@@ -357,6 +359,8 @@ function Focus({ tasks }: { tasks: StoredTodo[] }) {
           </ul>
         </div>
       </div>
+    </div>
+    <FocusSounds />
     </div>
   );
 }

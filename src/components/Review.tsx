@@ -270,7 +270,7 @@ export default function Review({
                     </div>
                     <div className="mt-2.5 flex flex-wrap items-center gap-2 text-sm text-event">
                       <input
-                        type="datetime-local"
+                        type="datetime-local" step={900}
                         value={toLocalInput(ev.start)}
                         onChange={(e) => update({ start: fromLocalInput(e.target.value) })}
                         className="rounded-lg border border-event/20 bg-surface-2 px-2 py-1 outline-none"

@@ -50,6 +50,15 @@ export function dayKey(iso: string | Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** Round a time to the nearest 15-minute window (keeps the calendar tidy). */
+export function snap15(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  d.setMinutes(Math.round(d.getMinutes() / 15) * 15, 0, 0);
+  return d.toISOString();
+}
+
 // ── reads ──────────────────────────────────────────────────
 async function fetchAll(): Promise<DB> {
   if (!supabase) return empty();
@@ -125,7 +134,7 @@ export async function saveSortResult(r: SortResult, transcript: string, nowISO: 
         r.todos.map((t) => ({
           created_at: nowISO,
           title: t.title,
-          due: t.due,
+          due: snap15(t.due),
           priority: t.priority,
           done: false,
           repeat: t.repeat ?? "none",
@@ -139,8 +148,8 @@ export async function saveSortResult(r: SortResult, transcript: string, nowISO: 
         r.events.map((e) => ({
           created_at: nowISO,
           title: e.title,
-          starts_at: e.start,
-          ends_at: e.end,
+          starts_at: snap15(e.start),
+          ends_at: snap15(e.end),
           location: e.location,
           all_day: e.allDay,
         })),
@@ -165,7 +174,7 @@ export async function addTodo(
   repeat: Repeat = "none",
 ) {
   if (!supabase || !title.trim()) return;
-  const dueISO = due ? new Date(due).toISOString() : null;
+  const dueISO = snap15(due);
   await supabase
     .from("todos")
     .insert({ title: title.trim(), due: dueISO, priority, done: false, repeat });
@@ -226,7 +235,7 @@ export async function addNote(title: string, body: string) {
 
 export async function addEvent(title: string, startISO: string, allDay = false) {
   if (!supabase || !title.trim() || !startISO) return;
-  await supabase.from("events").insert({ title: title.trim(), starts_at: startISO, all_day: allDay });
+  await supabase.from("events").insert({ title: title.trim(), starts_at: snap15(startISO), all_day: allDay });
   broadcast();
 }
 
@@ -244,7 +253,7 @@ export async function updateTodo(
 ) {
   if (!supabase) return;
   const p: Record<string, unknown> = { ...patch };
-  if ("due" in p) p.due = p.due ? new Date(p.due as string).toISOString() : null;
+  if ("due" in p) p.due = snap15(p.due as string);
   if ("title" in p && typeof p.title === "string") p.title = p.title.trim();
   await supabase.from("todos").update(p).eq("id", id);
   broadcast();

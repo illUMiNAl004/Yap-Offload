@@ -118,7 +118,7 @@ function Row({ t, i }: { t: StoredTodo; i: number }) {
       />
 
       <input
-        type="datetime-local"
+        type="datetime-local" step={900}
         value={toLocal(t.due)}
         onChange={(e) => updateTodo(t.id, { due: e.target.value || null })}
         className="rounded-lg border border-line bg-transparent px-2 py-1 text-xs text-task outline-none"
