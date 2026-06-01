@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Sparkles } from "lucide-react";
-import { useDB } from "@/lib/store";
+import { Sparkles, Trash2 } from "lucide-react";
+import { useDB, remove } from "@/lib/store";
 import { fmtDate } from "@/lib/format";
 import PageShell from "@/components/PageShell";
 
@@ -24,8 +24,19 @@ export default function JournalPage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05, duration: 0.5 }}
-            className="card card-hover p-7 sm:p-9"
+            className="card card-hover group relative p-7 sm:p-9"
           >
+            <button
+              onClick={() => {
+                if (confirm("Delete this journal entry? This can't be undone.")) {
+                  remove("journal", e.id);
+                }
+              }}
+              className="absolute right-5 top-5 opacity-0 transition group-hover:opacity-100"
+              aria-label="Delete entry"
+            >
+              <Trash2 size={16} className="text-muted hover:text-accent" />
+            </button>
             <p className="mb-3 text-sm font-medium uppercase tracking-wide text-journal">
               {fmtDate(e.createdAt)}
             </p>

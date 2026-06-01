@@ -8,7 +8,8 @@ import { MOCK_TRANSCRIPT, mockSort } from "./mock";
  * To swap in Claude/OpenAI later, only this file changes.
  */
 
-const TRANSCRIBE_MODEL = "whisper-large-v3-turbo";
+// large-v3 (not turbo) is noticeably better on names, brands & places
+const TRANSCRIBE_MODEL = "whisper-large-v3";
 const SORT_MODEL = "llama-3.3-70b-versatile";
 
 let _client: Groq | null = null;
@@ -29,8 +30,13 @@ export async function transcribe(audio: File): Promise<{ text: string; mock: boo
     file: audio,
     model: TRANSCRIBE_MODEL,
     language: "en",
-    // a touch of context nudges Whisper toward names/dates
-    prompt: "A spoken brain-dump about my day: tasks, plans, appointments, and reflections.",
+    temperature: 0,
+    // Context primes Whisper's spelling of proper nouns. Listing real examples
+    // (stores, brands, places) biases it toward correct casing/spelling.
+    prompt:
+      "A casual spoken journal about my day — tasks, plans, appointments, and reflections. " +
+      "It may mention people's names, places, and store/brand names like HEB, Costco, Trader Joe's, " +
+      "Whole Foods, Target, Starbucks, Chipotle, Walmart, Amazon, and times of day.",
   });
   return { text: res.text.trim(), mock: false };
 }
@@ -46,7 +52,8 @@ export async function sort(
 
   const completion = await groq.chat.completions.create({
     model: SORT_MODEL,
-    temperature: 0.3,
+    temperature: 0.45,
+    max_tokens: 2048,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: buildSortSystemPrompt(nowISO, timeZone) },

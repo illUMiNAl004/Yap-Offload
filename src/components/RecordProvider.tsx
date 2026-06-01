@@ -177,6 +177,24 @@ export default function RecordProvider({ children }: { children: React.ReactNode
                         )}
                       </div>
 
+                      {!recording && phase !== "processing" && (
+                        <div className="mt-5 flex max-w-lg flex-wrap items-center justify-center gap-2">
+                          {[
+                            "“Remind me to…” → task",
+                            "“Meeting tomorrow at 2” → event",
+                            "“Note that…” → note",
+                            "“Today I…” → journal",
+                          ].map((x) => (
+                            <span
+                              key={x}
+                              className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/45"
+                            >
+                              {x}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       {state === "denied" && (
                         <p className="mt-2 text-sm text-accent">
                           I need mic access — enable it in your browser settings.
