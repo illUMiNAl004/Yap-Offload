@@ -148,10 +148,47 @@ export async function saveSortResult(r: SortResult, transcript: string, nowISO: 
   broadcast();
 }
 
-export async function addTodo(title: string) {
+export async function addTodo(
+  title: string,
+  due: string | null = null,
+  priority: Todo["priority"] = "normal",
+) {
   if (!supabase || !title.trim()) return;
-  await supabase.from("todos").insert({ title: title.trim(), priority: "normal", done: false });
+  const dueISO = due ? new Date(due).toISOString() : null;
+  await supabase.from("todos").insert({ title: title.trim(), due: dueISO, priority, done: false });
   broadcast();
+}
+
+/** Wipe every row + photo for the signed-in user. Irreversible. */
+export async function clearAllData() {
+  if (!supabase) return;
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u.user?.id;
+  if (!uid) return;
+  await Promise.all([
+    supabase.from("journal").delete().eq("user_id", uid),
+    supabase.from("todos").delete().eq("user_id", uid),
+    supabase.from("events").delete().eq("user_id", uid),
+    supabase.from("notes").delete().eq("user_id", uid),
+    supabase.from("day_photos").delete().eq("user_id", uid),
+  ]);
+  const { data: files } = await supabase.storage.from(BUCKET).list(uid);
+  if (files?.length) {
+    await supabase.storage.from(BUCKET).remove(files.map((f) => `${uid}/${f.name}`));
+  }
+  broadcast();
+}
+
+/** Urgency rank for sorting: higher = more urgent. */
+export function urgency(t: StoredTodo): number {
+  const prio = t.priority === "high" ? 2 : t.priority === "low" ? 0 : 1;
+  // overdue/sooner due dates raise urgency
+  let dueBoost = 0;
+  if (t.due) {
+    const days = (new Date(t.due).getTime() - Date.now()) / 86400000;
+    dueBoost = days <= 0 ? 3 : days <= 1 ? 2.5 : days <= 3 ? 2 : days <= 7 ? 1 : 0.5;
+  }
+  return prio + dueBoost;
 }
 
 export async function addNote(title: string, body: string) {

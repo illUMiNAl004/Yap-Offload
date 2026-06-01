@@ -21,7 +21,7 @@ create table if not exists public.todos (
   user_id     uuid not null references auth.users (id) on delete cascade default auth.uid(),
   created_at  timestamptz not null default now(),
   title       text not null,
-  due         date,
+  due         timestamptz,
   priority    text not null default 'normal',
   done        boolean not null default false
 );
@@ -56,18 +56,26 @@ create table if not exists public.day_photos (
   primary key (user_id, day)
 );
 
+-- GOOGLE CONNECTION (stored refresh token for Calendar/Tasks sync) -------
+create table if not exists public.google_connections (
+  user_id     uuid primary key references auth.users (id) on delete cascade default auth.uid(),
+  refresh_token text not null,
+  updated_at  timestamptz not null default now()
+);
+
 -- ROW LEVEL SECURITY ------------------------------------------
-alter table public.journal     enable row level security;
-alter table public.todos       enable row level security;
-alter table public.events      enable row level security;
-alter table public.notes       enable row level security;
-alter table public.day_photos  enable row level security;
+alter table public.journal             enable row level security;
+alter table public.todos               enable row level security;
+alter table public.events              enable row level security;
+alter table public.notes               enable row level security;
+alter table public.day_photos          enable row level security;
+alter table public.google_connections  enable row level security;
 
 -- "owners do anything to their own rows" for each table
 do $$
 declare t text;
 begin
-  foreach t in array array['journal','todos','events','notes','day_photos']
+  foreach t in array array['journal','todos','events','notes','day_photos','google_connections']
   loop
     execute format('drop policy if exists own_rows on public.%I', t);
     execute format(

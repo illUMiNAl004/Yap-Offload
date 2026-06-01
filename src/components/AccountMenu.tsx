@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 export default function AccountMenu() {
@@ -32,6 +33,13 @@ export default function AccountMenu() {
               className="card absolute right-0 z-50 mt-2 w-56 p-2"
             >
               <p className="truncate px-3 py-2 text-sm text-muted">{user.email}</p>
+              <Link
+                href="/settings"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink transition hover:bg-surface-2"
+              >
+                <Settings size={15} className="text-muted" /> Settings
+              </Link>
               <button
                 onClick={signOut}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink transition hover:bg-surface-2"

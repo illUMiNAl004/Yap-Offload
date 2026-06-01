@@ -3,11 +3,16 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { captureGoogleRefreshToken } from "@/lib/google";
+
+const GOOGLE_SYNC_SCOPES =
+  "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks";
 
 type AuthState = {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  connectGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<{ needsConfirm: boolean }>;
   setName: (name: string) => Promise<void>;
@@ -18,6 +23,7 @@ const Ctx = createContext<AuthState>({
   user: null,
   loading: true,
   signInWithGoogle: async () => {},
+  connectGoogle: async () => {},
   signInWithEmail: async () => {},
   signUpWithEmail: async () => ({ needsConfirm: false }),
   setName: async () => {},
@@ -52,6 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      // if we just returned from connecting Google, stash the refresh token
+      if (session?.provider_refresh_token) captureGoogleRefreshToken(session);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -61,6 +69,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin },
+    });
+  };
+
+  // Connect Google with Calendar + Tasks scopes (offline → long-lived refresh token)
+  const connectGoogle = async () => {
+    if (!supabase) return;
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        scopes: GOOGLE_SYNC_SCOPES,
+        redirectTo: window.location.href,
+        queryParams: { access_type: "offline", prompt: "consent" },
+      },
     });
   };
 
@@ -92,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, setName, signOut }}
+      value={{ user, loading, signInWithGoogle, connectGoogle, signInWithEmail, signUpWithEmail, setName, signOut }}
     >
       {children}
     </Ctx.Provider>

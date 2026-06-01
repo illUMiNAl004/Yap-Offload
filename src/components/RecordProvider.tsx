@@ -9,6 +9,7 @@ import RecordButton from "@/components/RecordButton";
 import WavePill from "@/components/WavePill";
 import Review from "@/components/Review";
 import { saveSortResult } from "@/lib/store";
+import { syncToGoogle } from "@/lib/google";
 import type { SortResult } from "@/lib/types";
 
 type Phase = "idle" | "processing" | "review" | "kept";
@@ -101,6 +102,10 @@ export default function RecordProvider({ children }: { children: React.ReactNode
   async function handleConfirm(edited: SortResult) {
     setSaving(true);
     saveSortResult(edited, transcript, new Date().toISOString());
+    // best-effort: push new events/todos to Google Calendar + Tasks if connected
+    if (edited.events.length || edited.todos.length) {
+      syncToGoogle({ events: edited.events, todos: edited.todos }).catch(() => {});
+    }
     await new Promise((r) => setTimeout(r, 450));
     setSaving(false);
     setPhase("kept");

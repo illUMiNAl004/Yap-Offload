@@ -4,33 +4,77 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { addTodo, addNote, addEvent } from "@/lib/store";
 
-/** Quick-add a task by typing — Enter to add. */
+const PRIOS = [
+  { key: "low" as const, label: "Low", color: "var(--color-muted)" },
+  { key: "normal" as const, label: "Normal", color: "var(--color-task)" },
+  { key: "high" as const, label: "Urgent", color: "var(--color-accent)" },
+];
+
+/** Quick-add a task — type + Enter, or expand for date & importance. */
 export function QuickAddTask() {
   const [v, setV] = useState("");
+  const [due, setDue] = useState("");
+  const [priority, setPriority] = useState<"low" | "normal" | "high">("normal");
+  const [open, setOpen] = useState(false);
+
   const submit = () => {
     if (!v.trim()) return;
-    addTodo(v);
+    addTodo(v, due || null, priority);
     setV("");
+    setDue("");
+    setPriority("normal");
+    setOpen(false);
   };
+
   return (
-    <div className="card flex items-center gap-3 p-4">
-      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-line-strong text-muted">
-        <Plus size={13} />
-      </span>
-      <input
-        value={v}
-        onChange={(e) => setV(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && submit()}
-        placeholder="Add a task…"
-        className="flex-1 bg-transparent text-lg text-ink outline-none placeholder:text-muted"
-      />
-      {v.trim() && (
-        <button
-          onClick={submit}
-          className="rounded-full bg-accent px-4 py-1.5 text-sm text-white transition hover:brightness-105"
-        >
-          Add
-        </button>
+    <div className="card p-4">
+      <div className="flex items-center gap-3">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-line-strong text-muted">
+          <Plus size={13} />
+        </span>
+        <input
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder="Add a task…"
+          className="flex-1 bg-transparent text-lg text-ink outline-none placeholder:text-muted"
+        />
+        {v.trim() && (
+          <button
+            onClick={submit}
+            className="rounded-full bg-accent px-4 py-1.5 text-sm text-white transition hover:brightness-105"
+          >
+            Add
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pl-9 pt-3">
+          <div className="flex items-center gap-1.5">
+            {PRIOS.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => setPriority(p.key)}
+                className="flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition"
+                style={{
+                  borderColor: priority === p.key ? p.color : "var(--color-line)",
+                  color: priority === p.key ? p.color : "var(--color-muted)",
+                }}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <input
+            type="datetime-local"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+            className="rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs text-ink outline-none"
+          />
+        </div>
       )}
     </div>
   );

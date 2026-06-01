@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { Check, Trash2 } from "lucide-react";
-import { useDB, toggleTodo, remove, type StoredTodo } from "@/lib/store";
+import { useDB, toggleTodo, remove, urgency, type StoredTodo } from "@/lib/store";
 import { fmtDay } from "@/lib/format";
 import PageShell from "@/components/PageShell";
 import { QuickAddTask } from "@/components/AddForms";
@@ -61,7 +61,7 @@ function Row({ t, i }: { t: StoredTodo; i: number }) {
 
 export default function TasksPage() {
   const db = useDB();
-  const active = db.todos.filter((t) => !t.done);
+  const active = db.todos.filter((t) => !t.done).sort((a, b) => urgency(b) - urgency(a));
   const done = db.todos.filter((t) => t.done);
 
   return (
