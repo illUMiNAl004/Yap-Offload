@@ -161,9 +161,12 @@ export async function saveSortResult(r: SortResult, transcript: string, nowISO: 
   }
   const todoRows = r.todos.map((t) => {
     let due = snap15(t.due);
-    if (t.autoSchedule && !due) {
-      due = findFreeSlot(busy, t.durationMin ?? 30, Date.now());
-      busy.push({ start: new Date(due).getTime(), end: new Date(due).getTime() + (t.durationMin ?? 30) * 60000 });
+    if (t.autoSchedule) {
+      // start searching from now, or from the hinted day if one was given
+      const fromMs = due ? Math.max(Date.now(), new Date(due).getTime()) : Date.now();
+      const dur = t.durationMin ?? 30;
+      due = findFreeSlot(busy, dur, fromMs);
+      busy.push({ start: new Date(due).getTime(), end: new Date(due).getTime() + dur * 60000 });
     }
     return { created_at: nowISO, title: t.title, due, priority: t.priority, done: false, repeat: t.repeat ?? "none" };
   });

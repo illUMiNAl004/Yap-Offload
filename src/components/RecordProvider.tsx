@@ -14,6 +14,17 @@ import type { SortResult } from "@/lib/types";
 
 type Phase = "idle" | "typing" | "processing" | "review" | "kept";
 
+/** The user's actual local date/time + IANA timezone, for correct "tomorrow" parsing. */
+function clientNow(): { tz: string; now: string } {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const s = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: tz,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).format(new Date());
+  return { tz, now: s.replace(" ", "T") };
+}
+
 /** Pick a file extension Groq/Whisper recognizes, from the blob's MIME type. */
 function extFor(type: string): string {
   if (type.includes("webm")) return "webm";
@@ -93,13 +104,11 @@ export default function RecordProvider({ children }: { children: React.ReactNode
       setTranscript(tJson.text);
 
       setStatus("Sorting your day…");
+      const { tz, now } = clientNow();
       const sRes = await fetch("/api/sort", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: tJson.text,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
+        body: JSON.stringify({ text: tJson.text, timeZone: tz, now }),
       });
       const sJson = await sRes.json();
       if (!sRes.ok) throw new Error(sJson.error || "Sorting failed");
@@ -119,10 +128,11 @@ export default function RecordProvider({ children }: { children: React.ReactNode
     try {
       setTranscript(text);
       setStatus("Sorting your day…");
+      const { tz, now } = clientNow();
       const sRes = await fetch("/api/sort", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+        body: JSON.stringify({ text, timeZone: tz, now }),
       });
       const sJson = await sRes.json();
       if (!sRes.ok) throw new Error(sJson.error || "Sorting failed");
