@@ -13,6 +13,7 @@ import {
   MapPin,
 } from "lucide-react";
 import type { SortResult, Todo, CalEvent, Note } from "@/lib/types";
+import DueEditor from "@/components/DueEditor";
 
 type Props = {
   initial: SortResult;
@@ -219,12 +220,7 @@ export default function Review({
                       onChange={(e) => update({ title: e.target.value })}
                       className="flex-1 bg-transparent text-ink outline-none"
                     />
-                    <input
-                      type="date"
-                      value={t.due ? t.due.slice(0, 10) : ""}
-                      onChange={(e) => update({ due: e.target.value || null })}
-                      className="rounded-lg border border-task/25 bg-task/10 px-2 py-1 text-xs text-task outline-none"
-                    />
+                    <DueEditor value={t.due} onChange={(due) => update({ due })} accent="var(--color-task)" />
                     <button
                       onClick={() => set("todos", r.todos.filter((_, j) => j !== i))}
                       className="opacity-0 transition group-hover:opacity-100"

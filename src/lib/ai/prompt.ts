@@ -44,6 +44,7 @@ Rules:
   • "add an event…", "schedule…", "I have <X> at <time>", "meeting/appointment/interview…" → events
   • "note that…", "remember that…", "I learned…", "idea:", "fun fact" → notes
   • storytelling, feelings, "today I…", reflections → journal
+- EXPLICIT LABELS override everything. If the user literally announces a type — "this is a task: …", "task: …", "the event is: …", "event: …", "add to my calendar: …", "this is a note: …", "note: …", "journal: …" — put that item in exactly that bucket, even if it would otherwise infer differently. One message can contain several labeled items ("this is a task: X. the event is: Y at 3pm. note: Z") — split each into the correct bucket. Strip the label words from the saved title/text.
 - For events with no explicit end time, set end to null. For all-day things ("interview on Friday" with no time), set allDay true and use the date at 00:00 local for start.
 - Infer priority from urgency/emphasis in their words ("really need to", "urgent", "don't forget") → high.
 - Set "repeat" on a todo when they describe a recurring habit: "every day", "daily", "each morning" → "daily"; "every week", "weekly", "every Monday" → "weekly"; otherwise "none".

@@ -8,7 +8,7 @@ import FlowField from "@/components/FlowField";
 import RecordButton from "@/components/RecordButton";
 import WavePill from "@/components/WavePill";
 import Review from "@/components/Review";
-import { saveSortResult } from "@/lib/store";
+import { saveSortResult, fillAutoSchedule } from "@/lib/store";
 import { syncToGoogle } from "@/lib/google";
 import type { SortResult } from "@/lib/types";
 
@@ -112,7 +112,7 @@ export default function RecordProvider({ children }: { children: React.ReactNode
       });
       const sJson = await sRes.json();
       if (!sRes.ok) throw new Error(sJson.error || "Sorting failed");
-      setResult(sJson.result);
+      setResult(await fillAutoSchedule(sJson.result));
       setMock(Boolean(tJson.mock || sJson.mock));
       setPhase("review");
     } catch (e) {
@@ -136,7 +136,7 @@ export default function RecordProvider({ children }: { children: React.ReactNode
       });
       const sJson = await sRes.json();
       if (!sRes.ok) throw new Error(sJson.error || "Sorting failed");
-      setResult(sJson.result);
+      setResult(await fillAutoSchedule(sJson.result));
       setMock(Boolean(sJson.mock));
       setPhase("review");
     } catch (e) {

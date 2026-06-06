@@ -197,6 +197,32 @@ export async function saveSortResult(r: SortResult, transcript: string, nowISO: 
   return { ok: errors.length === 0, errors };
 }
 
+/**
+ * Resolve "auto-schedule" todos into concrete free slots BEFORE the review,
+ * so the proposed time shows up and the user can tweak it. Clears the flag.
+ */
+export async function fillAutoSchedule(r: SortResult): Promise<SortResult> {
+  if (!supabase || !r.todos.some((t) => t.autoSchedule)) return r;
+  const { data: evs } = await supabase.from("events").select("starts_at, ends_at");
+  const busy: { start: number; end: number }[] = (evs ?? []).map((e) => ({
+    start: new Date(e.starts_at).getTime(),
+    end: e.ends_at ? new Date(e.ends_at).getTime() : new Date(e.starts_at).getTime() + 3600000,
+  }));
+  for (const e of r.events) {
+    const s = new Date(e.start).getTime();
+    busy.push({ start: s, end: e.end ? new Date(e.end).getTime() : s + 3600000 });
+  }
+  const todos = r.todos.map((t) => {
+    if (!t.autoSchedule) return t;
+    const fromMs = t.due ? Math.max(Date.now(), new Date(t.due).getTime()) : Date.now();
+    const dur = t.durationMin ?? 30;
+    const due = findFreeSlot(busy, dur, fromMs);
+    busy.push({ start: new Date(due).getTime(), end: new Date(due).getTime() + dur * 60000 });
+    return { ...t, due, autoSchedule: false };
+  });
+  return { ...r, todos };
+}
+
 export async function addTodo(
   title: string,
   due: string | null = null,

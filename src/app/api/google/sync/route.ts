@@ -50,57 +50,42 @@ export async function POST(req: NextRequest) {
 
   const { events = [], todos = [] } = await req.json();
   const gh = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
-  let calCount = 0;
-  let taskCount = 0;
-
-  for (const e of events) {
+  // fire all inserts in parallel — much faster than one-by-one
+  type Ev = { allDay?: boolean; start: string; end?: string | null; title: string; location?: string | null };
+  type Td = { title: string; due?: string | null };
+  const calJobs = (events as Ev[]).map(async (e) => {
     try {
       let body: Record<string, unknown>;
       if (e.allDay) {
         const day = String(e.start).slice(0, 10);
         const next = new Date(day);
         next.setDate(next.getDate() + 1);
-        body = {
-          summary: e.title,
-          location: e.location || undefined,
-          start: { date: day },
-          end: { date: next.toISOString().slice(0, 10) },
-        };
+        body = { summary: e.title, location: e.location || undefined, start: { date: day }, end: { date: next.toISOString().slice(0, 10) } };
       } else {
         const start = new Date(e.start);
         const end = e.end ? new Date(e.end) : new Date(start.getTime() + 3600000);
-        body = {
-          summary: e.title,
-          location: e.location || undefined,
-          start: { dateTime: start.toISOString() },
-          end: { dateTime: end.toISOString() },
-        };
+        body = { summary: e.title, location: e.location || undefined, start: { dateTime: start.toISOString() }, end: { dateTime: end.toISOString() } };
       }
-      const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-        method: "POST",
-        headers: gh,
-        body: JSON.stringify(body),
-      });
-      if (r.ok) calCount++;
+      const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", { method: "POST", headers: gh, body: JSON.stringify(body) });
+      return r.ok;
     } catch {
-      /* skip this event */
+      return false;
     }
-  }
-
-  for (const t of todos) {
+  });
+  const taskJobs = (todos as Td[]).map(async (t) => {
     try {
       const body: Record<string, unknown> = { title: t.title };
       if (t.due) body.due = new Date(t.due).toISOString();
-      const r = await fetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", {
-        method: "POST",
-        headers: gh,
-        body: JSON.stringify(body),
-      });
-      if (r.ok) taskCount++;
+      const r = await fetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", { method: "POST", headers: gh, body: JSON.stringify(body) });
+      return r.ok;
     } catch {
-      /* skip this task */
+      return false;
     }
-  }
+  });
+
+  const [cal, tsk] = await Promise.all([Promise.all(calJobs), Promise.all(taskJobs)]);
+  const calCount = cal.filter(Boolean).length;
+  const taskCount = tsk.filter(Boolean).length;
 
   return NextResponse.json({ connected: true, events: calCount, tasks: taskCount });
 }

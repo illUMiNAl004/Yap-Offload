@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { addTodo, addNote, addEvent } from "@/lib/store";
+import DueEditor from "@/components/DueEditor";
 
 const PRIOS = [
   { key: "low" as const, label: "Low", color: "var(--color-muted)" },
@@ -19,16 +20,16 @@ const REPEATS = [
 /** Quick-add a task — type + Enter, or expand for date, importance & repeat. */
 export function QuickAddTask() {
   const [v, setV] = useState("");
-  const [due, setDue] = useState("");
+  const [due, setDue] = useState<string | null>(null);
   const [priority, setPriority] = useState<"low" | "normal" | "high">("normal");
   const [repeat, setRepeat] = useState<"none" | "daily" | "weekly">("none");
   const [open, setOpen] = useState(false);
 
   const submit = () => {
     if (!v.trim()) return;
-    addTodo(v, due || null, priority, repeat);
+    addTodo(v, due, priority, repeat);
     setV("");
-    setDue("");
+    setDue(null);
     setPriority("normal");
     setRepeat("none");
     setOpen(false);
@@ -76,12 +77,7 @@ export function QuickAddTask() {
               </button>
             ))}
           </div>
-          <input
-            type="datetime-local" step={900}
-            value={due}
-            onChange={(e) => setDue(e.target.value)}
-            className="rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-xs text-ink outline-none"
-          />
+          <DueEditor value={due} onChange={setDue} accent="var(--color-ink-soft)" />
           <div className="flex items-center gap-1.5">
             {REPEATS.map((rp) => (
               <button

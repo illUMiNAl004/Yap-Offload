@@ -8,6 +8,7 @@ import PageShell from "@/components/PageShell";
 import { QuickAddTask } from "@/components/AddForms";
 import Heatmap from "@/components/Heatmap";
 import WeekAgenda from "@/components/WeekAgenda";
+import DueEditor from "@/components/DueEditor";
 
 function HabitRow({ t }: { t: StoredTodo }) {
   return (
@@ -46,14 +47,6 @@ const prioColor: Record<StoredTodo["priority"], string> = {
   high: "var(--color-accent)",
 };
 const PRIO_CYCLE: StoredTodo["priority"][] = ["low", "normal", "high"];
-
-function toLocal(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function Row({ t, i }: { t: StoredTodo; i: number }) {
   return (
@@ -98,12 +91,7 @@ function Row({ t, i }: { t: StoredTodo; i: number }) {
         className={`flex-1 bg-transparent outline-none ${t.done ? "text-muted line-through" : "text-ink"}`}
       />
 
-      <input
-        type="datetime-local" step={900}
-        value={toLocal(t.due)}
-        onChange={(e) => updateTodo(t.id, { due: e.target.value || null })}
-        className="rounded-lg border border-line bg-transparent px-2 py-1 text-xs text-task outline-none"
-      />
+      <DueEditor value={t.due} onChange={(due) => updateTodo(t.id, { due })} accent="var(--color-task)" />
 
       <button
         onClick={() => remove("todos", t.id)}
