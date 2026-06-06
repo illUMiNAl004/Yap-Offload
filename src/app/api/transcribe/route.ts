@@ -15,8 +15,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ text, mock });
   } catch (err) {
     console.error("transcribe error", err);
+    // surface the real reason (e.g. unsupported format, file too large, bad key)
+    const detail = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "Could not transcribe that. Try again?" },
+      { error: `Couldn't transcribe: ${detail}`.slice(0, 300) },
       { status: 500 },
     );
   }

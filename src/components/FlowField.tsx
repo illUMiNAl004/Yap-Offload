@@ -42,12 +42,16 @@ function noise(x: number, y: number) {
 type Props = {
   recording: boolean;
   analyser: React.RefObject<AnalyserNode | null>;
+  /** optional external 0..1 level source (e.g. typing energy) — overrides audio */
+  getLevel?: () => number;
 };
 
-export default function FlowField({ recording, analyser }: Props) {
+export default function FlowField({ recording, analyser, getLevel }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const recRef = useRef(recording);
   recRef.current = recording;
+  const getLevelRef = useRef(getLevel);
+  getLevelRef.current = getLevel;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -76,6 +80,7 @@ export default function FlowField({ recording, analyser }: Props) {
     let raf = 0;
 
     const readLevel = () => {
+      if (getLevelRef.current) return Math.min(1, Math.max(0, getLevelRef.current()));
       const a = analyser.current;
       if (!a || !recRef.current) return 0;
       a.getByteFrequencyData(freq);

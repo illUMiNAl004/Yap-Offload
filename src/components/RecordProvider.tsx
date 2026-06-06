@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useCallback, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Upload } from "lucide-react";
+import { X, Upload, Keyboard, Sparkles } from "lucide-react";
 import { useRecorder } from "@/lib/useRecorder";
 import FlowField from "@/components/FlowField";
 import RecordButton from "@/components/RecordButton";
@@ -12,7 +12,18 @@ import { saveSortResult } from "@/lib/store";
 import { syncToGoogle } from "@/lib/google";
 import type { SortResult } from "@/lib/types";
 
-type Phase = "idle" | "processing" | "review" | "kept";
+type Phase = "idle" | "typing" | "processing" | "review" | "kept";
+
+/** Pick a file extension Groq/Whisper recognizes, from the blob's MIME type. */
+function extFor(type: string): string {
+  if (type.includes("webm")) return "webm";
+  if (type.includes("mp4") || type.includes("m4a") || type.includes("aac") || type.includes("x-m4a")) return "mp4";
+  if (type.includes("mpeg") || type.includes("mp3")) return "mp3";
+  if (type.includes("ogg")) return "ogg";
+  if (type.includes("wav")) return "wav";
+  if (type.includes("flac")) return "flac";
+  return "webm";
+}
 
 const PROMPTS = ["How was your day?", "What's on your mind?", "Tell me everything.", "Let it all out."];
 
@@ -33,6 +44,8 @@ export default function RecordProvider({ children }: { children: React.ReactNode
 
   const recording = state === "recording";
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [typed, setTyped] = useState("");
+  const lastKeyRef = useRef(0); // for the typing-reactive background
 
   const openRecorder = useCallback(() => {
     setPrompt(PROMPTS[Math.floor(Math.random() * PROMPTS.length)]);
@@ -40,6 +53,7 @@ export default function RecordProvider({ children }: { children: React.ReactNode
     setError("");
     setResult(null);
     setTranscript("");
+    setTyped("");
     setOpen(true);
   }, []);
 
@@ -56,7 +70,7 @@ export default function RecordProvider({ children }: { children: React.ReactNode
         setError("I didn't catch any audio. Mic working?");
         return;
       }
-      await process(blob);
+      await process(blob, `recording.${extFor(blob.type)}`);
     } else {
       await start();
     }
@@ -96,6 +110,29 @@ export default function RecordProvider({ children }: { children: React.ReactNode
       console.error(e);
       setError(e instanceof Error ? e.message : "Something went wrong.");
       setPhase("idle");
+    }
+  }
+
+  async function processText(text: string) {
+    if (!text.trim()) return;
+    setPhase("processing");
+    try {
+      setTranscript(text);
+      setStatus("Sorting your day…");
+      const sRes = await fetch("/api/sort", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+      });
+      const sJson = await sRes.json();
+      if (!sRes.ok) throw new Error(sJson.error || "Sorting failed");
+      setResult(sJson.result);
+      setMock(Boolean(sJson.mock));
+      setPhase("review");
+    } catch (e) {
+      console.error(e);
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setPhase("typing");
     }
   }
 
@@ -145,6 +182,46 @@ export default function RecordProvider({ children }: { children: React.ReactNode
                   saving={saving}
                 />
               </motion.div>
+            ) : phase === "typing" ? (
+              <div className="absolute inset-0 grid place-items-center overflow-hidden" style={{ background: "#0c0b10" }}>
+                <div className="pointer-events-none absolute inset-0 opacity-90">
+                  <FlowField
+                    recording
+                    analyser={analyser}
+                    getLevel={() => Math.max(0, 1 - (Date.now() - lastKeyRef.current) / 700)}
+                  />
+                </div>
+                <button
+                  onClick={close}
+                  className="absolute right-5 top-5 z-30 grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/5 text-white/70 backdrop-blur-md transition hover:bg-white/10"
+                >
+                  <X size={18} />
+                </button>
+                <div className="relative z-10 w-full max-w-2xl px-6">
+                  <h2 className="mb-6 text-center font-serif text-4xl italic text-white sm:text-5xl">Write your day.</h2>
+                  <textarea
+                    autoFocus
+                    value={typed}
+                    onChange={(e) => setTyped(e.target.value)}
+                    onKeyDown={() => (lastKeyRef.current = Date.now())}
+                    placeholder="Just type it all out — what happened, what's on your mind, what you need to do…"
+                    className="h-64 w-full resize-none rounded-2xl border border-white/15 bg-white/5 p-5 text-lg leading-relaxed text-white outline-none backdrop-blur-md placeholder:text-white/35"
+                  />
+                  <div className="mt-5 flex items-center justify-center gap-4">
+                    <button onClick={() => setPhase("idle")} className="text-white/55 transition hover:text-white/85">
+                      Back
+                    </button>
+                    <button
+                      onClick={() => processText(typed)}
+                      disabled={!typed.trim()}
+                      className="flex items-center gap-2 rounded-full bg-accent px-7 py-3 text-white transition hover:brightness-105 disabled:opacity-40"
+                    >
+                      <Sparkles size={16} /> Sort it
+                    </button>
+                  </div>
+                  {error && <p className="mt-3 text-center text-sm text-accent">{error}</p>}
+                </div>
+              </div>
             ) : (
               <div className="absolute inset-0 grid place-items-center overflow-hidden" style={{ background: "#0c0b10" }}>
                 <div className="pointer-events-none absolute inset-0 opacity-90">
@@ -207,12 +284,18 @@ export default function RecordProvider({ children }: { children: React.ReactNode
                       )}
 
                       {!recording && phase !== "processing" && (
-                        <>
+                        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                           <button
                             onClick={() => fileRef.current?.click()}
-                            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-white/55 transition hover:text-white/85"
+                            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-white/55 transition hover:text-white/85"
                           >
-                            <Upload size={14} /> Upload a recording instead
+                            <Upload size={14} /> Upload a recording
+                          </button>
+                          <button
+                            onClick={() => { setError(""); setPhase("typing"); }}
+                            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-white/55 transition hover:text-white/85"
+                          >
+                            <Keyboard size={14} /> Type it out
                           </button>
                           <input
                             ref={fileRef}
@@ -221,7 +304,7 @@ export default function RecordProvider({ children }: { children: React.ReactNode
                             className="hidden"
                             onChange={(e) => handleUpload(e.target.files?.[0])}
                           />
-                        </>
+                        </div>
                       )}
 
                       {state === "denied" && (
