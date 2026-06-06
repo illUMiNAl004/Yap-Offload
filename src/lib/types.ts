@@ -12,6 +12,10 @@ export const TodoSchema = z.object({
   priority: z.enum(["low", "normal", "high"]).default("normal"),
   // recurring tasks become "habits"
   repeat: z.enum(["none", "daily", "weekly"]).default("none"),
+  // when true (no fixed time given), yapload finds a free slot in the schedule
+  autoSchedule: z.boolean().optional(),
+  // rough length for auto-scheduling, in minutes
+  durationMin: z.number().optional(),
 });
 
 export const EventSchema = z.object({

@@ -26,7 +26,7 @@ function PomodoroButton() {
         style={{ color: running ? "var(--color-accent)" : "var(--color-muted)" }}
       >
         <Timer size={16} />
-        {running && <span className="tabular-nums">{mm}:{ss}</span>}
+        {running && <span className="hidden tabular-nums sm:inline">{mm}:{ss}</span>}
       </button>
       <AnimatePresence>
         {open && (

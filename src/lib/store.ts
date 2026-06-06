@@ -63,6 +63,23 @@ export function snap15(iso: string | null | undefined): string | null {
   return d.toISOString();
 }
 
+/** Next free 15-min-aligned slot of `durationMin` within work hours (9–21), avoiding `busy`. */
+function findFreeSlot(busy: { start: number; end: number }[], durationMin: number, fromMs: number): string {
+  const STEP = 15 * 60000;
+  const dur = Math.max(15, durationMin) * 60000;
+  const WORK_START = 9;
+  const WORK_END = 21;
+  let t = Math.ceil(fromMs / STEP) * STEP;
+  for (let i = 0; i < 14 * 24 * 4; i++, t += STEP) {
+    const s = new Date(t);
+    const e = new Date(t + dur);
+    if (s.getHours() + s.getMinutes() / 60 < WORK_START) continue;
+    if (e.getDate() !== s.getDate() || e.getHours() + e.getMinutes() / 60 > WORK_END) continue;
+    if (!busy.some((b) => t < b.end && t + dur > b.start)) return new Date(t).toISOString();
+  }
+  return new Date(fromMs + 3600000).toISOString();
+}
+
 // ── reads ──────────────────────────────────────────────────
 async function fetchAll(): Promise<DB> {
   if (!supabase) return empty();
@@ -122,56 +139,59 @@ async function fetchAll(): Promise<DB> {
 
 // ── writes ─────────────────────────────────────────────────
 export async function saveSortResult(r: SortResult, transcript: string, nowISO: string) {
-  if (!supabase) return;
-  const ops: PromiseLike<unknown>[] = [];
-  if (r.journal.trim() || r.highlights.length) {
-    ops.push(
-      supabase.from("journal").insert({
-        created_at: nowISO,
-        day: dayKey(nowISO),
-        body: r.journal,
-        highlights: r.highlights,
-        transcript,
-      }),
-    );
+  if (!supabase) return { ok: true, errors: [] as string[] };
+  const errors: string[] = [];
+  const run = async (label: string, p: PromiseLike<{ error: { message: string } | null }>) => {
+    const { error } = await p;
+    if (error) errors.push(`${label}: ${error.message}`);
+  };
+
+  // auto-schedule "whenever I have time" todos into free slots around real events
+  const busy: { start: number; end: number }[] = [];
+  if (r.todos.some((t) => t.autoSchedule && !t.due)) {
+    const { data: evs } = await supabase.from("events").select("starts_at, ends_at");
+    for (const e of evs ?? []) {
+      const s = new Date(e.starts_at).getTime();
+      busy.push({ start: s, end: e.ends_at ? new Date(e.ends_at).getTime() : s + 3600000 });
+    }
+    for (const e of r.events) {
+      const s = new Date(e.start).getTime();
+      busy.push({ start: s, end: e.end ? new Date(e.end).getTime() : s + 3600000 });
+    }
   }
-  if (r.todos.length) {
-    ops.push(
-      supabase.from("todos").insert(
-        r.todos.map((t) => ({
-          created_at: nowISO,
-          title: t.title,
-          due: snap15(t.due),
-          priority: t.priority,
-          done: false,
-          repeat: t.repeat ?? "none",
-        })),
-      ),
-    );
+  const todoRows = r.todos.map((t) => {
+    let due = snap15(t.due);
+    if (t.autoSchedule && !due) {
+      due = findFreeSlot(busy, t.durationMin ?? 30, Date.now());
+      busy.push({ start: new Date(due).getTime(), end: new Date(due).getTime() + (t.durationMin ?? 30) * 60000 });
+    }
+    return { created_at: nowISO, title: t.title, due, priority: t.priority, done: false, repeat: t.repeat ?? "none" };
+  });
+
+  const jobs: Promise<void>[] = [];
+  if (r.journal.trim() || r.highlights.length) {
+    jobs.push(run("journal", supabase.from("journal").insert({
+      created_at: nowISO, day: dayKey(nowISO), body: r.journal, highlights: r.highlights, transcript,
+    })));
+  }
+  if (todoRows.length) {
+    jobs.push(run("todos", supabase.from("todos").insert(todoRows)));
   }
   if (r.events.length) {
-    ops.push(
-      supabase.from("events").insert(
-        r.events.map((e) => ({
-          created_at: nowISO,
-          title: e.title,
-          starts_at: snap15(e.start),
-          ends_at: snap15(e.end),
-          location: e.location,
-          all_day: e.allDay,
-        })),
-      ),
-    );
+    jobs.push(run("events", supabase.from("events").insert(
+      r.events.map((e) => ({ created_at: nowISO, title: e.title, starts_at: snap15(e.start), ends_at: snap15(e.end), location: e.location, all_day: e.allDay })),
+    )));
   }
   if (r.notes.length) {
-    ops.push(
-      supabase.from("notes").insert(
-        r.notes.map((n) => ({ created_at: nowISO, title: n.title, body: n.body })),
-      ),
-    );
+    jobs.push(run("notes", supabase.from("notes").insert(
+      r.notes.map((n) => ({ created_at: nowISO, title: n.title, body: n.body })),
+    )));
   }
-  await Promise.all(ops);
+
+  await Promise.all(jobs);
+  if (errors.length) console.error("yapload: some items failed to save —", errors);
   broadcast();
+  return { ok: errors.length === 0, errors };
 }
 
 export async function addTodo(

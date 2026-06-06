@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/core";
 import { ArrowLeft, ArrowRight, Check, GripVertical, Clock, Inbox } from "lucide-react";
 import { useDB, toggleTodo, updateTodo, dayKey, snap15, type StoredTodo } from "@/lib/store";
+import { fetchGoogleEvents, type GoogleEvent } from "@/lib/google";
 import { fmtTime } from "@/lib/format";
 
 const startOfToday = () => {
@@ -82,6 +83,21 @@ export default function WeekAgenda() {
   const tasks = db.todos.filter((t) => !t.done && (!t.repeat || t.repeat === "none"));
   const unscheduled = tasks.filter((t) => !t.due);
 
+  // pull real Google Calendar events for the visible week (dedup'd against ours)
+  const [external, setExternal] = useState<GoogleEvent[]>([]);
+  const rangeStart = days[0].toISOString();
+  const rangeEnd = new Date(days[6].getTime() + 86400000).toISOString();
+  useEffect(() => {
+    let alive = true;
+    fetchGoogleEvents(rangeStart, rangeEnd).then((evs) => alive && setExternal(evs));
+    return () => {
+      alive = false;
+    };
+  }, [rangeStart, rangeEnd]);
+
+  const isOurs = (g: GoogleEvent) =>
+    db.events.some((l) => l.title === g.title && Math.abs(+new Date(l.start) - +new Date(g.start)) < 60000);
+
   const onEnd = (e: DragEndEvent) => {
     setDragId(null);
     const id = String(e.active.id);
@@ -133,33 +149,41 @@ export default function WeekAgenda() {
           </div>
         </Drop>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-7">
-          {days.map((d) => {
-            const k = dayKey(d);
-            const isToday = k === todayKey;
-            const past = d < startOfToday();
-            const dayEvents = db.events.filter((e) => dayKey(e.start) === k);
-            const dayTasks = tasks.filter((t) => t.due && dayKey(t.due) === k);
-            return (
-              <Drop key={k} id={k}>
-                <div className="card h-full min-h-[150px] p-2.5" style={{ borderColor: isToday ? "var(--color-accent)" : undefined, opacity: past ? 0.6 : 1 }}>
-                  <div className="mb-2 flex items-baseline gap-1.5">
-                    <span className="text-[11px] uppercase tracking-wide text-muted">{d.toLocaleDateString(undefined, { weekday: "short" })}</span>
-                    <span className="font-serif text-lg leading-none" style={{ color: isToday ? "var(--color-accent)" : "var(--color-ink)" }}>{d.getDate()}</span>
+        <div className="no-scrollbar overflow-x-auto pb-1">
+          <div className="grid min-w-[680px] grid-cols-7 gap-2.5">
+            {days.map((d) => {
+              const k = dayKey(d);
+              const isToday = k === todayKey;
+              const past = d < startOfToday();
+              const localEvents = db.events.filter((e) => dayKey(e.start) === k);
+              const extEvents = external.filter((e) => dayKey(e.start) === k && !isOurs(e));
+              const dayTasks = tasks.filter((t) => t.due && dayKey(t.due) === k);
+              const allEvents = [...localEvents.map((e) => ({ ...e, ext: false })), ...extEvents.map((e) => ({ ...e, ext: true }))]
+                .sort((a, b) => +new Date(a.start) - +new Date(b.start));
+              return (
+                <Drop key={k} id={k}>
+                  <div className="card h-full min-h-[150px] p-2.5" style={{ borderColor: isToday ? "var(--color-accent)" : undefined, opacity: past ? 0.6 : 1 }}>
+                    <div className="mb-2 flex items-baseline gap-1.5">
+                      <span className="text-[11px] uppercase tracking-wide text-muted">{d.toLocaleDateString(undefined, { weekday: "short" })}</span>
+                      <span className="font-serif text-lg leading-none" style={{ color: isToday ? "var(--color-accent)" : "var(--color-ink)" }}>{d.getDate()}</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {allEvents.map((e) => (
+                        <div key={e.id} className="rounded-lg border-l-2 px-2 py-1 text-xs" style={{ borderColor: "var(--color-event)", background: "color-mix(in srgb, var(--color-event) 10%, transparent)", color: "var(--color-event)" }}>
+                          <span className="flex items-center gap-1">
+                            <Clock size={9} /> {e.allDay ? "All day" : fmtTime(e.start)}
+                            {e.ext && <span className="rounded bg-event/20 px-1 text-[8px] font-bold">G</span>}
+                          </span>
+                          <span className="text-ink-soft">{e.title}</span>
+                        </div>
+                      ))}
+                      {dayTasks.map((t) => <Task key={t.id} t={t} />)}
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    {dayEvents.map((e) => (
-                      <div key={e.id} className="rounded-lg border-l-2 px-2 py-1 text-xs" style={{ borderColor: "var(--color-event)", background: "color-mix(in srgb, var(--color-event) 10%, transparent)", color: "var(--color-event)" }}>
-                        <span className="flex items-center gap-1"><Clock size={9} /> {e.allDay ? "All day" : fmtTime(e.start)}</span>
-                        <span className="text-ink-soft">{e.title}</span>
-                      </div>
-                    ))}
-                    {dayTasks.map((t) => <Task key={t.id} t={t} />)}
-                  </div>
-                </div>
-              </Drop>
-            );
-          })}
+                </Drop>
+              );
+            })}
+          </div>
         </div>
         <DragOverlay>{dragged ? <div className="card px-3 py-2 text-sm text-ink shadow-[var(--shadow-float)]">{dragged.title}</div> : null}</DragOverlay>
       </DndContext>

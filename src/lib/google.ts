@@ -33,6 +33,34 @@ export async function disconnectGoogle() {
   if (u.user) await supabase.from("google_connections").delete().eq("user_id", u.user.id);
 }
 
+export type GoogleEvent = {
+  id: string;
+  title: string;
+  start: string;
+  end: string | null;
+  allDay: boolean;
+  location: string | null;
+};
+
+/** Pull the user's real Google Calendar events for a date range (read-only). */
+export async function fetchGoogleEvents(startISO: string, endISO: string): Promise<GoogleEvent[]> {
+  if (!supabase) return [];
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return [];
+  try {
+    const res = await fetch("/api/google/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ start: startISO, end: endISO }),
+    });
+    const j = await res.json();
+    return (j.events ?? []).filter((e: GoogleEvent) => e.start);
+  } catch {
+    return [];
+  }
+}
+
 type SyncResult = { connected: boolean; events?: number; tasks?: number; error?: string };
 
 /** Push events → Google Calendar and todos → Google Tasks (best effort). */

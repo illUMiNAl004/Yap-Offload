@@ -22,7 +22,7 @@ Sort everything into five buckets. Return ONLY valid JSON, no prose, matching th
   "journal": string,          // EXPANSIVE first-person narrative, in their voice, covering EVERYTHING they talked about — events, what they did, people, places, brands (e.g. "HEB"), thoughts, feelings, plans. Include the events/plans here too. Weave in concrete specifics so it reads true to their day. Flowing prose, as many paragraphs as the material needs. Never invent. Only leave "" if they truly said nothing journalable (pure noise, or only a bare task).
   "highlights": string[],     // A few short bullet takeaways of the day — standout moments, wins, feelings, realizations. One line each. [] if none.
   "todos": [                  // Things they need to DO. Actionable tasks and reminders. (These are the ONLY thing kept out of the journal.)
-    { "title": string, "due": string|null, "priority": "low"|"normal"|"high", "repeat": "none"|"daily"|"weekly" }
+    { "title": string, "due": string|null, "priority": "low"|"normal"|"high", "repeat": "none"|"daily"|"weekly", "autoSchedule": boolean, "durationMin": number }
   ],
   "events": [                 // Things happening at a SPECIFIC future time — meetings, interviews, appointments, plans. (Also mention them in the journal.)
     { "title": string, "start": ISO datetime, "end": ISO datetime|null, "location": string|null, "allDay": boolean }
@@ -47,6 +47,7 @@ Rules:
 - For events with no explicit end time, set end to null. For all-day things ("interview on Friday" with no time), set allDay true and use the date at 00:00 local for start.
 - Infer priority from urgency/emphasis in their words ("really need to", "urgent", "don't forget") → high.
 - Set "repeat" on a todo when they describe a recurring habit: "every day", "daily", "each morning" → "daily"; "every week", "weekly", "every Monday" → "weekly"; otherwise "none".
+- Set "autoSchedule": true when they want the app to FIND time for a task rather than giving a fixed time — phrases like "whenever I have time", "when I'm free", "find time to", "fit in", "sometime", "at some point". Leave "due" null in that case. Estimate "durationMin" from their words ("quick call" ~15, "30-minute" → 30, a meeting/session ~60); default 30. For normal tasks, autoSchedule is false.
 - The journal should almost always have content if they said anything substantive. Default to journalling generously — when unsure whether something is "worth" journalling, include it. Events they mention go in BOTH the events bucket and the journal narrative.
 - notes are NARROW: only explicit remember-items (birthdays, dates, facts, learnings, "note this"). Do NOT duplicate general day happenings into notes — those live in the journal.
 - highlights are a short bullet recap of the day's standout moments; keep them few.
