@@ -7,6 +7,7 @@ import FocusSoundProvider from "@/components/FocusSoundProvider";
 import PomodoroProvider from "@/components/PomodoroProvider";
 import TopBar from "@/components/TopBar";
 import MemoryRibbon from "@/components/MemoryRibbon";
+import SiteFooter from "@/components/SiteFooter";
 import SignIn from "@/components/SignIn";
 import Onboarding from "@/components/Onboarding";
 
@@ -33,6 +34,7 @@ function Gate({ children }: { children: React.ReactNode }) {
             <TopBar />
             <div className="flex-1">{children}</div>
             <MemoryRibbon />
+            <SiteFooter />
           </div>
         </PomodoroProvider>
       </FocusSoundProvider>
